@@ -1,6 +1,6 @@
-import { FormEvent, useEffect, useState } from 'react';
-import * as XLSX from 'xlsx';
-import { api } from './api';
+import { FormEvent, useEffect, useState } from "react";
+import * as XLSX from "xlsx";
+import { api } from "./api";
 import type {
   Booking,
   Court,
@@ -9,40 +9,44 @@ import type {
   CustomerGender,
   DashboardOverview,
   SkillLevel,
-} from './types';
+} from "./types";
 
 const today = new Date().toISOString().slice(0, 10);
 
-const genderOptions: CustomerGender[] = ['MALE', 'FEMALE', 'OTHER'];
-const skillLevelOptions: SkillLevel[] = ['BEGINNER', 'INTERMEDIATE', 'ADVANCED'];
+const genderOptions: CustomerGender[] = ["MALE", "FEMALE", "OTHER"];
+const skillLevelOptions: SkillLevel[] = [
+  "BEGINNER",
+  "INTERMEDIATE",
+  "ADVANCED",
+];
 
 const initialForm: CreateBookingPayload = {
-  customerName: '',
-  customerPhone: '',
-  gender: 'OTHER',
-  skillLevel: 'BEGINNER',
+  customerName: "",
+  customerPhone: "",
+  gender: "OTHER",
+  skillLevel: "BEGINNER",
   bookingDate: today,
-  startTime: '18:00',
-  endTime: '19:00',
+  startTime: "18:00",
+  endTime: "19:00",
   depositAmount: 200,
-  notes: '',
+  notes: "",
 };
 
 const initialCourtForm: CourtPayload = {
-  name: '',
-  zone: '',
+  name: "",
+  zone: "",
   hourlyRate: 0,
   isActive: true,
 };
 
 function getSkillLevelLabel(skillLevel: SkillLevel) {
   switch (skillLevel) {
-    case 'BEGINNER':
-      return 'Mới bắt đầu';
-    case 'INTERMEDIATE':
-      return 'Trung bình';
-    case 'ADVANCED':
-      return 'Nâng cao';
+    case "BEGINNER":
+      return "Mới bắt đầu";
+    case "INTERMEDIATE":
+      return "Trung bình";
+    case "ADVANCED":
+      return "Nâng cao";
     default:
       return skillLevel;
   }
@@ -50,19 +54,22 @@ function getSkillLevelLabel(skillLevel: SkillLevel) {
 
 function getGenderLabel(gender: CustomerGender) {
   switch (gender) {
-    case 'MALE':
-      return 'Nam';
-    case 'FEMALE':
-      return 'Nữ';
-    case 'OTHER':
-      return 'Khác';
+    case "MALE":
+      return "Nam";
+    case "FEMALE":
+      return "Nữ";
+    case "OTHER":
+      return "Khác";
     default:
       return gender;
   }
 }
 
 function getMatchTracking(matchTracking?: boolean[]) {
-  return Array.from({ length: 7 }, (_, index) => matchTracking?.[index] ?? false);
+  return Array.from(
+    { length: 7 },
+    (_, index) => matchTracking?.[index] ?? false,
+  );
 }
 
 function sortBookingsStable(bookings: Booking[]) {
@@ -90,15 +97,18 @@ export default function App() {
   const [form, setForm] = useState<CreateBookingPayload>(initialForm);
   const [selectedCourtId, setSelectedCourtId] = useState<number>(1);
   const [historyDate, setHistoryDate] = useState<string>(today);
-  const [searchTerm, setSearchTerm] = useState<string>('');
-  const [transferFilter, setTransferFilter] = useState<'all' | 'paid' | 'unpaid'>('all');
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [transferFilter, setTransferFilter] = useState<
+    "all" | "paid" | "unpaid"
+  >("all");
   const [participationFilter, setParticipationFilter] = useState<
-    'all' | 'checked_in' | 'no_show'
-  >('all');
+    "all" | "checked_in" | "no_show"
+  >("all");
   const [courtForm, setCourtForm] = useState<CourtPayload>(initialCourtForm);
   const [isCourtModalOpen, setIsCourtModalOpen] = useState(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [editingCourtId, setEditingCourtId] = useState<number | null>(null);
-  const [error, setError] = useState<string>('');
+  const [error, setError] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCourtSubmitting, setIsCourtSubmitting] = useState(false);
 
@@ -115,7 +125,9 @@ export default function App() {
       setBookings(bookingsData);
 
       if (courtsData.length > 0) {
-        const fallbackCourtId = courtsData.some((court) => court.id === selectedCourtId)
+        const fallbackCourtId = courtsData.some(
+          (court) => court.id === selectedCourtId,
+        )
           ? selectedCourtId
           : courtsData[0].id;
         setSelectedCourtId(fallbackCourtId);
@@ -123,9 +135,13 @@ export default function App() {
         setSelectedCourtId(0);
       }
 
-      setError('');
+      setError("");
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'Không thể tải dữ liệu');
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Không thể tải dữ liệu",
+      );
     }
   }
 
@@ -142,7 +158,11 @@ export default function App() {
       setForm(initialForm);
       await loadData();
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Không thể tạo lượt đặt');
+      setError(
+        submitError instanceof Error
+          ? submitError.message
+          : "Không thể tạo lượt đặt",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -150,7 +170,7 @@ export default function App() {
 
   async function handleAssignCourt(id: number) {
     if (!selectedCourtId) {
-      setError('Vui lòng tạo sân trước khi phân khách.');
+      setError("Vui lòng tạo sân trước khi phân khách.");
       return;
     }
 
@@ -158,7 +178,11 @@ export default function App() {
       await api.assignCourt(id, selectedCourtId);
       await loadData();
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : 'Phân sân thất bại');
+      setError(
+        actionError instanceof Error
+          ? actionError.message
+          : "Phân sân thất bại",
+      );
     }
   }
 
@@ -167,7 +191,11 @@ export default function App() {
       await api.confirmDeposit(id);
       await loadData();
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : 'Cập nhật tiền cọc thất bại');
+      setError(
+        actionError instanceof Error
+          ? actionError.message
+          : "Cập nhật tiền cọc thất bại",
+      );
     }
   }
 
@@ -176,7 +204,11 @@ export default function App() {
       await api.checkIn(id);
       await loadData();
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : 'Check-in thất bại');
+      setError(
+        actionError instanceof Error
+          ? actionError.message
+          : "Check-in thất bại",
+      );
     }
   }
 
@@ -186,7 +218,9 @@ export default function App() {
       await loadData();
     } catch (actionError) {
       setError(
-        actionError instanceof Error ? actionError.message : 'Cập nhật thanh toán đủ thất bại',
+        actionError instanceof Error
+          ? actionError.message
+          : "Cập nhật thanh toán đủ thất bại",
       );
     }
   }
@@ -199,7 +233,7 @@ export default function App() {
       setError(
         actionError instanceof Error
           ? actionError.message
-          : 'Cập nhật trạng thái không đến thất bại',
+          : "Cập nhật trạng thái không đến thất bại",
       );
     }
   }
@@ -209,16 +243,28 @@ export default function App() {
       await api.deleteBooking(id);
       await loadData();
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : 'Xóa lượt đặt thất bại');
+      setError(
+        actionError instanceof Error
+          ? actionError.message
+          : "Xóa lượt đặt thất bại",
+      );
     }
   }
 
-  async function handleMatchTracking(id: number, slot: number, checked: boolean) {
+  async function handleMatchTracking(
+    id: number,
+    slot: number,
+    checked: boolean,
+  ) {
     try {
       await api.updateMatchTracking(id, slot, checked);
       await loadData();
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : 'Cập nhật lượt chơi thất bại');
+      setError(
+        actionError instanceof Error
+          ? actionError.message
+          : "Cập nhật lượt chơi thất bại",
+      );
     }
   }
 
@@ -259,7 +305,11 @@ export default function App() {
       closeCourtModal();
       await loadData();
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Cập nhật sân thất bại');
+      setError(
+        submitError instanceof Error
+          ? submitError.message
+          : "Cập nhật sân thất bại",
+      );
     } finally {
       setIsCourtSubmitting(false);
     }
@@ -270,18 +320,144 @@ export default function App() {
       await api.deleteCourt(id);
       await loadData();
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : 'Xóa sân thất bại');
+      setError(
+        deleteError instanceof Error ? deleteError.message : "Xóa sân thất bại",
+      );
     }
   }
 
-  const selectedCourt = courts.find((court) => court.id === selectedCourtId) ?? courts[0];
+  function renderAssignedBookingCard(
+    booking: Booking,
+    className = "booking-card",
+  ) {
+    return (
+      <article key={booking.id} className={className}>
+        <div className="booking-card-top">
+          <div>
+            <h3>{booking.customerName}</h3>
+            <p>
+              {booking.bookingDate} - {booking.startTime} đến {booking.endTime}
+            </p>
+          </div>
+          <span className={`status status-${booking.status.toLowerCase()}`}>
+            {booking.status}
+          </span>
+        </div>
+
+        <div className="booking-meta">
+          <span>{booking.customerPhone}</span>
+          <span>{getGenderLabel(booking.gender)}</span>
+          <span>{getSkillLevelLabel(booking.skillLevel)}</span>
+          <span>
+            Cọc {booking.depositPaid ? "đã thanh toán" : "đang chờ"} (
+            {booking.depositAmount})
+          </span>
+          <span>
+            Thanh toán đủ{" "}
+            {booking.fullPaymentTransferred ? "đã xác nhận" : "đang chờ"}
+          </span>
+        </div>
+
+        <div className="booking-actions">
+          <button
+            type="button"
+            className="ghost-button"
+            disabled={booking.depositPaid || booking.status === "NO_SHOW"}
+            onClick={() => handleDeposit(booking.id)}
+          >
+            Xác nhận cọc
+          </button>
+          <button
+            type="button"
+            className="primary-button"
+            disabled={
+              booking.status === "CHECKED_IN" ||
+              booking.status === "COMPLETED" ||
+              booking.status === "NO_SHOW"
+            }
+            onClick={() => handleCheckIn(booking.id)}
+          >
+            Check-in
+          </button>
+          <button
+            type="button"
+            className="success-button"
+            disabled={
+              booking.status !== "CHECKED_IN" || booking.fullPaymentTransferred
+            }
+            onClick={() => handleFullPayment(booking.id)}
+          >
+            Xác nhận thanh toán đủ
+          </button>
+          <button
+            type="button"
+            className="warning-button"
+            disabled={
+              !booking.depositPaid ||
+              booking.status === "CHECKED_IN" ||
+              booking.status === "COMPLETED" ||
+              booking.status === "NO_SHOW"
+            }
+            onClick={() => handleNoShow(booking.id)}
+          >
+            Không đến
+          </button>
+          <button
+            type="button"
+            className="ghost-button"
+            onClick={() => handleDeleteBooking(booking.id)}
+          >
+            Xóa đặt sân
+          </button>
+        </div>
+
+        <div className="match-tracking">
+          <div className="match-tracking-head">
+            <span className="selected-court-label">
+              Theo dõi trận & trình độ sân nhóm
+            </span>
+            <strong>
+              {getMatchTracking(booking.matchTracking).filter(Boolean).length}/7
+              lượt
+            </strong>
+          </div>
+          <div className="match-tracking-grid">
+            {getMatchTracking(booking.matchTracking).map((checked, index) => (
+              <label
+                key={index}
+                className={checked ? "match-box checked" : "match-box"}
+              >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={(event) =>
+                    void handleMatchTracking(
+                      booking.id,
+                      index,
+                      event.target.checked,
+                    )
+                  }
+                />
+                <span>Lượt {index + 1}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      </article>
+    );
+  }
+
+  const selectedCourt =
+    courts.find((court) => court.id === selectedCourtId) ?? courts[0];
   const unassignedBookings = sortBookingsStable(
     bookings
-    .filter((booking) => booking.bookingDate === historyDate)
-    .filter((booking) => booking.court === null)
-    .filter((booking) =>
-      booking.customerName.toLowerCase().includes(searchTerm.trim().toLowerCase()),
-    ),
+      .filter((booking) => booking.bookingDate === historyDate)
+      .filter((booking) => booking.court === null)
+      .filter((booking) =>
+        booking.customerName
+          .toLowerCase()
+          .includes(searchTerm.trim().toLowerCase()),
+      ),
   );
 
   const courtBookings = sortBookingsStable(
@@ -289,37 +465,41 @@ export default function App() {
   );
   const historyBookings = sortBookingsStable(
     courtBookings
-    .filter((booking) => booking.bookingDate === historyDate)
-    .filter((booking) =>
-      booking.customerName.toLowerCase().includes(searchTerm.trim().toLowerCase()),
-    )
-    .filter((booking) => {
-      if (transferFilter === 'paid') {
-        return booking.fullPaymentTransferred;
-      }
+      .filter((booking) => booking.bookingDate === historyDate)
+      .filter((booking) =>
+        booking.customerName
+          .toLowerCase()
+          .includes(searchTerm.trim().toLowerCase()),
+      )
+      .filter((booking) => {
+        if (transferFilter === "paid") {
+          return booking.fullPaymentTransferred;
+        }
 
-      if (transferFilter === 'unpaid') {
-        return !booking.fullPaymentTransferred;
-      }
+        if (transferFilter === "unpaid") {
+          return !booking.fullPaymentTransferred;
+        }
 
-      return true;
-    })
-    .filter((booking) => {
-      if (participationFilter === 'checked_in') {
-        return booking.status === 'CHECKED_IN' || booking.status === 'COMPLETED';
-      }
+        return true;
+      })
+      .filter((booking) => {
+        if (participationFilter === "checked_in") {
+          return (
+            booking.status === "CHECKED_IN" || booking.status === "COMPLETED"
+          );
+        }
 
-      if (participationFilter === 'no_show') {
-        return booking.status === 'NO_SHOW';
-      }
+        if (participationFilter === "no_show") {
+          return booking.status === "NO_SHOW";
+        }
 
-      return true;
-    }),
+        return true;
+      }),
   );
 
   function exportHistoryToExcel() {
     const rows = historyBookings.map((booking) => ({
-      Court: booking.court?.name ?? 'Chưa phân sân',
+      Court: booking.court?.name ?? "Chưa phân sân",
       Date: booking.bookingDate,
       Start: booking.startTime,
       End: booking.endTime,
@@ -328,19 +508,20 @@ export default function App() {
       SkillLevel: getSkillLevelLabel(booking.skillLevel),
       Phone: booking.customerPhone,
       DepositAmount: booking.depositAmount,
-      DepositPaid: booking.depositPaid ? 'Có' : 'Không',
-      FullTransfer: booking.fullPaymentTransferred ? 'Có' : 'Không',
-      PlaysCompleted: getMatchTracking(booking.matchTracking).filter(Boolean).length,
+      DepositPaid: booking.depositPaid ? "Có" : "Không",
+      FullTransfer: booking.fullPaymentTransferred ? "Có" : "Không",
+      PlaysCompleted: getMatchTracking(booking.matchTracking).filter(Boolean)
+        .length,
       Status: booking.status,
       Notes: booking.notes,
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(rows);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'QuảnLýSân');
+    XLSX.utils.book_append_sheet(workbook, worksheet, "QuảnLýSân");
     XLSX.writeFile(
       workbook,
-      `${selectedCourt?.name ?? 'sân'}-${historyDate}-quản-lý.xlsx`,
+      `${selectedCourt?.name ?? "sân"}-${historyDate}-quản-lý.xlsx`,
     );
   }
 
@@ -349,17 +530,22 @@ export default function App() {
       <header className="hero">
         <div>
           <p className="eyebrow">Quản Lý Sân Cầu Lông</p>
-          <h1>Tiếp nhận khách, sắp xếp sân và vận hành trong một giao diện duy nhất.</h1>
+          <h1>
+            Tiếp nhận khách, sắp xếp sân và vận hành trong một giao diện duy
+            nhất.
+          </h1>
           <p className="intro">
-            Nhập danh sách khách đã đặt và đã cọc trước, sau đó phân sân cho từng khách
-            khi bạn sẵn sàng.
+            Nhập danh sách khách đã đặt và đã cọc trước, sau đó phân sân cho
+            từng khách khi bạn sẵn sàng.
           </p>
         </div>
         <div className="hero-note">
           <span>Thông tin nhanh</span>
-          <strong>{overview?.totals.todaysBookings ?? 0} lượt đặt hôm nay</strong>
+          <strong>
+            {overview?.totals.todaysBookings ?? 0} lượt đặt hôm nay
+          </strong>
           <p>
-            {unassignedBookings.length} khách đang chờ phân sân và{' '}
+            {unassignedBookings.length} khách đang chờ phân sân và{" "}
             {overview?.totals.pendingTransfers ?? 0} giao dịch còn chờ xác nhận.
           </p>
         </div>
@@ -368,8 +554,14 @@ export default function App() {
       {error ? <div className="alert">{error}</div> : null}
 
       <section className="stats-grid">
-        <StatCard label="Sân đang hoạt động" value={overview?.totals.courts ?? 0} />
-        <StatCard label="Lượt đặt hôm nay" value={overview?.totals.todaysBookings ?? 0} />
+        <StatCard
+          label="Sân đang hoạt động"
+          value={overview?.totals.courts ?? 0}
+        />
+        <StatCard
+          label="Lượt đặt hôm nay"
+          value={overview?.totals.todaysBookings ?? 0}
+        />
         <StatCard label="Chờ phân sân" value={unassignedBookings.length} />
         <StatCard
           label="Chờ xác nhận chuyển khoản"
@@ -418,7 +610,10 @@ export default function App() {
                 <select
                   value={form.gender}
                   onChange={(event) =>
-                    setForm({ ...form, gender: event.target.value as CustomerGender })
+                    setForm({
+                      ...form,
+                      gender: event.target.value as CustomerGender,
+                    })
                   }
                 >
                   {genderOptions.map((gender) => (
@@ -433,7 +628,10 @@ export default function App() {
                 <select
                   value={form.skillLevel}
                   onChange={(event) =>
-                    setForm({ ...form, skillLevel: event.target.value as SkillLevel })
+                    setForm({
+                      ...form,
+                      skillLevel: event.target.value as SkillLevel,
+                    })
                   }
                 >
                   {skillLevelOptions.map((skillLevel) => (
@@ -464,7 +662,10 @@ export default function App() {
                   min="0"
                   value={form.depositAmount}
                   onChange={(event) =>
-                    setForm({ ...form, depositAmount: Number(event.target.value) })
+                    setForm({
+                      ...form,
+                      depositAmount: Number(event.target.value),
+                    })
                   }
                   required
                 />
@@ -500,19 +701,27 @@ export default function App() {
               Ghi chú
               <input
                 value={form.notes}
-                onChange={(event) => setForm({ ...form, notes: event.target.value })}
+                onChange={(event) =>
+                  setForm({ ...form, notes: event.target.value })
+                }
                 placeholder="Thuê vợt, đến muộn, nhóm mới"
               />
             </label>
 
             <div className="selected-court-card">
               <span className="selected-court-label">Quy trình</span>
-              <strong>Tiền cọc được ghi nhận đã thanh toán khi thêm khách</strong>
+              <strong>
+                Tiền cọc được ghi nhận đã thanh toán khi thêm khách
+              </strong>
               <small>Phân sân sau trong mục Quản lý sân.</small>
             </div>
 
-            <button className="primary-button" type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Đang lưu...' : 'Thêm khách đặt sân'}
+            <button
+              className="primary-button"
+              type="submit"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Đang lưu..." : "Thêm khách đặt sân"}
             </button>
           </form>
         </section>
@@ -521,7 +730,11 @@ export default function App() {
           <div className="panel-head">
             <div>
               <p className="panel-tag">Quản lý sân</p>
-              <h2>{selectedCourt ? `${selectedCourt.name} - phân sân` : 'Quản lý sân'}</h2>
+              <h2>
+                {selectedCourt
+                  ? `${selectedCourt.name} - phân sân`
+                  : "Quản lý sân"}
+              </h2>
             </div>
           </div>
 
@@ -530,7 +743,11 @@ export default function App() {
               <button
                 key={court.id}
                 type="button"
-                className={court.id === selectedCourtId ? 'court-tab active' : 'court-tab'}
+                className={
+                  court.id === selectedCourtId
+                    ? "court-tab active"
+                    : "court-tab"
+                }
                 onClick={() => setSelectedCourtId(court.id)}
               >
                 <span>{court.name}</span>
@@ -562,7 +779,9 @@ export default function App() {
               <select
                 value={transferFilter}
                 onChange={(event) =>
-                  setTransferFilter(event.target.value as 'all' | 'paid' | 'unpaid')
+                  setTransferFilter(
+                    event.target.value as "all" | "paid" | "unpaid",
+                  )
                 }
               >
                 <option value="all">Tất cả khách</option>
@@ -576,7 +795,7 @@ export default function App() {
                 value={participationFilter}
                 onChange={(event) =>
                   setParticipationFilter(
-                    event.target.value as 'all' | 'checked_in' | 'no_show',
+                    event.target.value as "all" | "checked_in" | "no_show",
                   )
                 }
               >
@@ -601,18 +820,26 @@ export default function App() {
             </div>
             <div className="queue-list">
               {unassignedBookings.length === 0 ? (
-                <p className="empty-state">Không có khách nào chờ phân sân trong ngày này.</p>
+                <p className="empty-state">
+                  Không có khách nào chờ phân sân trong ngày này.
+                </p>
               ) : (
                 unassignedBookings.map((booking) => (
-                  <article key={booking.id} className="booking-card compact-card">
+                  <article
+                    key={booking.id}
+                    className="booking-card compact-card"
+                  >
                     <div className="booking-card-top">
                       <div>
                         <h3>{booking.customerName}</h3>
                         <p>
-                          {getGenderLabel(booking.gender)} - {getSkillLevelLabel(booking.skillLevel)}
+                          {getGenderLabel(booking.gender)} -{" "}
+                          {getSkillLevelLabel(booking.skillLevel)}
                         </p>
                       </div>
-                      <span className={`status status-${booking.status.toLowerCase()}`}>
+                      <span
+                        className={`status status-${booking.status.toLowerCase()}`}
+                      >
                         {booking.status}
                       </span>
                     </div>
@@ -630,7 +857,7 @@ export default function App() {
                         disabled={!selectedCourtId}
                         onClick={() => handleAssignCourt(booking.id)}
                       >
-                        Phân vào {selectedCourt?.name ?? 'sân'}
+                        Phân vào {selectedCourt?.name ?? "sân"}
                       </button>
                       <button
                         type="button"
@@ -648,121 +875,34 @@ export default function App() {
 
           <div className="panel-subhead history-subhead">
             <p className="panel-tag">Lịch sử đã phân</p>
-            <h3>
-              {selectedCourt ? `${selectedCourt.name} - danh sách khách` : 'Khách đã phân sân'}
-            </h3>
+            <div className="history-subhead-row">
+              <h3>
+                {selectedCourt
+                  ? `${selectedCourt.name} - danh sách khách`
+                  : "Khách đã phân sân"}
+              </h3>
+              <button
+                type="button"
+                className="ghost-button view-button"
+                onClick={() => setIsHistoryModalOpen(true)}
+              >
+                <span className="view-icon" aria-hidden="true">
+                  👁
+                </span>
+                <span>Xem</span>
+              </button>
+            </div>
           </div>
 
           <div className="schedule-list">
             {historyBookings.length === 0 ? (
-              <p className="empty-state">Không có khách nào được phân vào sân này trong ngày này.</p>
+              <p className="empty-state">
+                Không có khách nào được phân vào sân này trong ngày này.
+              </p>
             ) : (
-              historyBookings.map((booking) => (
-                <article key={booking.id} className="booking-card">
-                  <div className="booking-card-top">
-                    <div>
-                      <h3>{booking.customerName}</h3>
-                      <p>
-                        {booking.bookingDate} - {booking.startTime} đến {booking.endTime}
-                      </p>
-                    </div>
-                    <span className={`status status-${booking.status.toLowerCase()}`}>
-                      {booking.status}
-                    </span>
-                  </div>
-
-                  <div className="booking-meta">
-                    <span>{booking.customerPhone}</span>
-                    <span>{getGenderLabel(booking.gender)}</span>
-                    <span>{getSkillLevelLabel(booking.skillLevel)}</span>
-                    <span>
-                      Cọc {booking.depositPaid ? 'đã thanh toán' : 'đang chờ'} ({booking.depositAmount})
-                    </span>
-                    <span>
-                      Thanh toán đủ {booking.fullPaymentTransferred ? 'đã xác nhận' : 'đang chờ'}
-                    </span>
-                  </div>
-
-                  <div className="booking-actions">
-                    <button
-                      type="button"
-                      className="ghost-button"
-                      disabled={booking.depositPaid || booking.status === 'NO_SHOW'}
-                      onClick={() => handleDeposit(booking.id)}
-                    >
-                      Xác nhận cọc
-                    </button>
-                    <button
-                      type="button"
-                      className="primary-button"
-                      disabled={
-                        booking.status === 'CHECKED_IN' ||
-                        booking.status === 'COMPLETED' ||
-                        booking.status === 'NO_SHOW'
-                      }
-                      onClick={() => handleCheckIn(booking.id)}
-                    >
-                      Check-in
-                    </button>
-                    <button
-                      type="button"
-                      className="success-button"
-                      disabled={
-                        booking.status !== 'CHECKED_IN' || booking.fullPaymentTransferred
-                      }
-                      onClick={() => handleFullPayment(booking.id)}
-                    >
-                      Xác nhận thanh toán đủ
-                    </button>
-                    <button
-                      type="button"
-                      className="warning-button"
-                      disabled={
-                        !booking.depositPaid ||
-                        booking.status === 'CHECKED_IN' ||
-                        booking.status === 'COMPLETED' ||
-                        booking.status === 'NO_SHOW'
-                      }
-                      onClick={() => handleNoShow(booking.id)}
-                    >
-                      Không đến
-                    </button>
-                    <button
-                      type="button"
-                      className="ghost-button"
-                      onClick={() => handleDeleteBooking(booking.id)}
-                    >
-                      Xóa đặt sân
-                    </button>
-                  </div>
-
-                  <div className="match-tracking">
-                    <div className="match-tracking-head">
-                      <span className="selected-court-label">
-                        Theo dõi trận & trình độ sân nhóm
-                      </span>
-                      <strong>{getMatchTracking(booking.matchTracking).filter(Boolean).length}/7 lượt</strong>
-                    </div>
-                    <div className="match-tracking-grid">
-                      {getMatchTracking(booking.matchTracking).map((checked, index) => (
-                        <label
-                          key={index}
-                          className={checked ? 'match-box checked' : 'match-box'}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={(event) =>
-                              void handleMatchTracking(booking.id, index, event.target.checked)
-                            }
-                          />
-                          <span>Lượt {index + 1}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                </article>
-              ))
+              historyBookings.map((booking) =>
+                renderAssignedBookingCard(booking),
+              )
             )}
           </div>
         </section>
@@ -775,7 +915,11 @@ export default function App() {
               <p className="panel-tag">Danh sách sân</p>
               <h2>Sân</h2>
             </div>
-            <button type="button" className="primary-button" onClick={openCreateCourtModal}>
+            <button
+              type="button"
+              className="primary-button"
+              onClick={openCreateCourtModal}
+            >
               Thêm sân
             </button>
           </div>
@@ -787,7 +931,9 @@ export default function App() {
                 <p>{court.zone}</p>
                 <ul>
                   <li>Giá: {court.hourlyRate} THB/giờ</li>
-                  <li>Trạng thái: {court.isActive ? 'Đang hoạt động' : 'Tạm dừng'}</li>
+                  <li>
+                    Trạng thái: {court.isActive ? "Đang hoạt động" : "Tạm dừng"}
+                  </li>
                 </ul>
                 <div className="court-actions">
                   <button
@@ -812,7 +958,11 @@ export default function App() {
       </section>
 
       {isCourtModalOpen ? (
-        <div className="modal-backdrop" role="presentation" onClick={closeCourtModal}>
+        <div
+          className="modal-backdrop"
+          role="presentation"
+          onClick={closeCourtModal}
+        >
           <div
             className="modal-card"
             role="dialog"
@@ -823,9 +973,15 @@ export default function App() {
             <div className="panel-head">
               <div>
                 <p className="panel-tag">Danh sách sân</p>
-                <h2 id="court-modal-title">{editingCourtId ? 'Sửa sân' : 'Thêm sân'}</h2>
+                <h2 id="court-modal-title">
+                  {editingCourtId ? "Sửa sân" : "Thêm sân"}
+                </h2>
               </div>
-              <button type="button" className="ghost-button" onClick={closeCourtModal}>
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={closeCourtModal}
+              >
                 Đóng
               </button>
             </div>
@@ -874,20 +1030,92 @@ export default function App() {
                   type="checkbox"
                   checked={courtForm.isActive}
                   onChange={(event) =>
-                    setCourtForm({ ...courtForm, isActive: event.target.checked })
+                    setCourtForm({
+                      ...courtForm,
+                      isActive: event.target.checked,
+                    })
                   }
                 />
                 <span>Sân đang hoạt động</span>
               </label>
 
-              <button className="primary-button" type="submit" disabled={isCourtSubmitting}>
+              <button
+                className="primary-button"
+                type="submit"
+                disabled={isCourtSubmitting}
+              >
                 {isCourtSubmitting
-                  ? 'Đang lưu...'
+                  ? "Đang lưu..."
                   : editingCourtId
-                    ? 'Lưu thay đổi'
-                    : 'Tạo sân'}
+                    ? "Lưu thay đổi"
+                    : "Tạo sân"}
               </button>
             </form>
+          </div>
+        </div>
+      ) : null}
+
+      {isHistoryModalOpen ? (
+        <div
+          className="modal-backdrop modal-backdrop-wide"
+          role="presentation"
+          onClick={() => setIsHistoryModalOpen(false)}
+        >
+          <div
+            className="modal-card modal-card-fullscreen"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="history-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="panel-head modal-head-sticky">
+              <div>
+                <p className="panel-tag">Theo dõi sân</p>
+                <h2 id="history-modal-title">
+                  {selectedCourt
+                    ? `${selectedCourt.name} - theo dõi trận & danh sách khách`
+                    : "Theo dõi trận"}
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={() => setIsHistoryModalOpen(false)}
+              >
+                Đóng
+              </button>
+            </div>
+
+            <div className="fullscreen-summary">
+              <div className="selected-court-card">
+                <span className="selected-court-label">Ngày theo dõi</span>
+                <strong>{historyDate}</strong>
+                <small>{historyBookings.length} khách đã phân sân</small>
+              </div>
+              <div className="selected-court-card">
+                <span className="selected-court-label">Mục tiêu</span>
+                <strong>Theo dõi trận đấu và quản lý danh sách khách</strong>
+                <small>
+                  Toàn màn hình, cuộn mượt và thao tác trực tiếp trên từng
+                  khách.
+                </small>
+              </div>
+            </div>
+
+            <div className="fullscreen-history-list">
+              {historyBookings.length === 0 ? (
+                <p className="empty-state">
+                  Không có khách nào được phân vào sân này trong ngày này.
+                </p>
+              ) : (
+                historyBookings.map((booking) =>
+                  renderAssignedBookingCard(
+                    booking,
+                    "booking-card stadium-card",
+                  ),
+                )
+              )}
+            </div>
           </div>
         </div>
       ) : null}

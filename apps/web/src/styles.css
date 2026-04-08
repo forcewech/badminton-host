@@ -477,6 +477,24 @@ select {
   margin: 0;
 }
 
+.history-subhead-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.view-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.view-icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
 .queue-list {
   max-height: 20rem;
   overflow-y: auto;
@@ -531,6 +549,63 @@ select {
   box-shadow: 0 24px 60px rgba(19, 49, 61, 0.25);
 }
 
+.modal-backdrop-wide {
+  padding: 0;
+}
+
+.modal-card-fullscreen {
+  width: 100vw;
+  max-width: none;
+  height: 100vh;
+  max-height: none;
+  border-radius: 0;
+  padding: 1rem;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-head-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding-bottom: 1rem;
+  background: #ffffff;
+}
+
+.fullscreen-summary {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.fullscreen-history-list {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 0.35rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.fullscreen-history-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.fullscreen-history-list::-webkit-scrollbar-thumb {
+  background: #bfd1d8;
+  border-radius: 999px;
+}
+
+.fullscreen-history-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.stadium-card {
+  background: #f5fafb;
+  border: 1px solid #d8e7ec;
+  box-shadow: 0 12px 24px rgba(47, 74, 90, 0.06);
+}
+
 .checkbox-field {
   display: flex;
   align-items: center;
@@ -576,6 +651,10 @@ select {
 
   .match-tracking-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .fullscreen-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
