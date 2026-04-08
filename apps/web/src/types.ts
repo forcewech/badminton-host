@@ -31,12 +31,14 @@ export type BookingStatus =
   | 'CANCELLED';
 
 export type CustomerGender = 'MALE' | 'FEMALE' | 'OTHER';
+export type SkillLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
 
 export type Booking = {
   id: number;
   customerName: string;
   customerPhone: string;
   gender: CustomerGender;
+  skillLevel: SkillLevel;
   bookingDate: string;
   startTime: string;
   endTime: string;
@@ -45,6 +47,7 @@ export type Booking = {
   fullPaymentTransferred: boolean;
   status: BookingStatus;
   notes: string;
+  matchTracking: boolean[];
   checkInAt?: string;
   paymentTransferredAt?: string;
   court: Court | null;
@@ -66,6 +69,7 @@ export type CreateBookingPayload = {
   customerName: string;
   customerPhone: string;
   gender: CustomerGender;
+  skillLevel: SkillLevel;
   bookingDate: string;
   startTime: string;
   endTime: string;

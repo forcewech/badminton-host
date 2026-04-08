@@ -8,16 +8,19 @@ import type {
   CreateBookingPayload,
   CustomerGender,
   DashboardOverview,
+  SkillLevel,
 } from './types';
 
 const today = new Date().toISOString().slice(0, 10);
 
 const genderOptions: CustomerGender[] = ['MALE', 'FEMALE', 'OTHER'];
+const skillLevelOptions: SkillLevel[] = ['BEGINNER', 'INTERMEDIATE', 'ADVANCED'];
 
 const initialForm: CreateBookingPayload = {
   customerName: '',
   customerPhone: '',
   gender: 'OTHER',
+  skillLevel: 'BEGINNER',
   bookingDate: today,
   startTime: '18:00',
   endTime: '19:00',
@@ -31,6 +34,54 @@ const initialCourtForm: CourtPayload = {
   hourlyRate: 0,
   isActive: true,
 };
+
+function getSkillLevelLabel(skillLevel: SkillLevel) {
+  switch (skillLevel) {
+    case 'BEGINNER':
+      return 'Mới bắt đầu';
+    case 'INTERMEDIATE':
+      return 'Trung bình';
+    case 'ADVANCED':
+      return 'Nâng cao';
+    default:
+      return skillLevel;
+  }
+}
+
+function getGenderLabel(gender: CustomerGender) {
+  switch (gender) {
+    case 'MALE':
+      return 'Nam';
+    case 'FEMALE':
+      return 'Nữ';
+    case 'OTHER':
+      return 'Khác';
+    default:
+      return gender;
+  }
+}
+
+function getMatchTracking(matchTracking?: boolean[]) {
+  return Array.from({ length: 7 }, (_, index) => matchTracking?.[index] ?? false);
+}
+
+function sortBookingsStable(bookings: Booking[]) {
+  return [...bookings].sort((left, right) => {
+    if (left.bookingDate !== right.bookingDate) {
+      return left.bookingDate.localeCompare(right.bookingDate);
+    }
+
+    if (left.startTime !== right.startTime) {
+      return left.startTime.localeCompare(right.startTime);
+    }
+
+    if (left.endTime !== right.endTime) {
+      return left.endTime.localeCompare(right.endTime);
+    }
+
+    return left.id - right.id;
+  });
+}
 
 export default function App() {
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
@@ -91,9 +142,7 @@ export default function App() {
       setForm(initialForm);
       await loadData();
     } catch (submitError) {
-      setError(
-        submitError instanceof Error ? submitError.message : 'Không thể tạo lượt đặt',
-      );
+      setError(submitError instanceof Error ? submitError.message : 'Không thể tạo lượt đặt');
     } finally {
       setIsSubmitting(false);
     }
@@ -147,7 +196,11 @@ export default function App() {
       await api.markNoShow(id);
       await loadData();
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : 'Cập nhật trạng thái không đến thất bại');
+      setError(
+        actionError instanceof Error
+          ? actionError.message
+          : 'Cập nhật trạng thái không đến thất bại',
+      );
     }
   }
 
@@ -157,6 +210,15 @@ export default function App() {
       await loadData();
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : 'Xóa lượt đặt thất bại');
+    }
+  }
+
+  async function handleMatchTracking(id: number, slot: number, checked: boolean) {
+    try {
+      await api.updateMatchTracking(id, slot, checked);
+      await loadData();
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : 'Cập nhật lượt chơi thất bại');
     }
   }
 
@@ -213,15 +275,20 @@ export default function App() {
   }
 
   const selectedCourt = courts.find((court) => court.id === selectedCourtId) ?? courts[0];
-  const unassignedBookings = bookings
+  const unassignedBookings = sortBookingsStable(
+    bookings
     .filter((booking) => booking.bookingDate === historyDate)
     .filter((booking) => booking.court === null)
     .filter((booking) =>
       booking.customerName.toLowerCase().includes(searchTerm.trim().toLowerCase()),
-    );
+    ),
+  );
 
-  const courtBookings = bookings.filter((booking) => booking.court?.id === selectedCourt?.id);
-  const historyBookings = courtBookings
+  const courtBookings = sortBookingsStable(
+    bookings.filter((booking) => booking.court?.id === selectedCourt?.id),
+  );
+  const historyBookings = sortBookingsStable(
+    courtBookings
     .filter((booking) => booking.bookingDate === historyDate)
     .filter((booking) =>
       booking.customerName.toLowerCase().includes(searchTerm.trim().toLowerCase()),
@@ -247,7 +314,8 @@ export default function App() {
       }
 
       return true;
-    });
+    }),
+  );
 
   function exportHistoryToExcel() {
     const rows = historyBookings.map((booking) => ({
@@ -256,11 +324,13 @@ export default function App() {
       Start: booking.startTime,
       End: booking.endTime,
       CustomerName: booking.customerName,
-      Gender: booking.gender,
+      Gender: getGenderLabel(booking.gender),
+      SkillLevel: getSkillLevelLabel(booking.skillLevel),
       Phone: booking.customerPhone,
       DepositAmount: booking.depositAmount,
       DepositPaid: booking.depositPaid ? 'Có' : 'Không',
       FullTransfer: booking.fullPaymentTransferred ? 'Có' : 'Không',
+      PlaysCompleted: getMatchTracking(booking.matchTracking).filter(Boolean).length,
       Status: booking.status,
       Notes: booking.notes,
     }));
@@ -301,7 +371,10 @@ export default function App() {
         <StatCard label="Sân đang hoạt động" value={overview?.totals.courts ?? 0} />
         <StatCard label="Lượt đặt hôm nay" value={overview?.totals.todaysBookings ?? 0} />
         <StatCard label="Chờ phân sân" value={unassignedBookings.length} />
-        <StatCard label="Chờ xác nhận chuyển khoản" value={overview?.totals.pendingTransfers ?? 0} />
+        <StatCard
+          label="Chờ xác nhận chuyển khoản"
+          value={overview?.totals.pendingTransfers ?? 0}
+        />
       </section>
 
       <main className="layout">
@@ -322,7 +395,7 @@ export default function App() {
                   onChange={(event) =>
                     setForm({ ...form, customerName: event.target.value })
                   }
-                  placeholder="Nguyen Van A"
+                  placeholder="Nguyễn Văn A"
                   required
                 />
               </label>
@@ -350,11 +423,29 @@ export default function App() {
                 >
                   {genderOptions.map((gender) => (
                     <option key={gender} value={gender}>
-                      {gender}
+                      {getGenderLabel(gender)}
                     </option>
                   ))}
                 </select>
               </label>
+              <label>
+                Trình độ
+                <select
+                  value={form.skillLevel}
+                  onChange={(event) =>
+                    setForm({ ...form, skillLevel: event.target.value as SkillLevel })
+                  }
+                >
+                  {skillLevelOptions.map((skillLevel) => (
+                    <option key={skillLevel} value={skillLevel}>
+                      {getSkillLevelLabel(skillLevel)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="grid-two">
               <label>
                 Ngày đặt
                 <input
@@ -362,6 +453,18 @@ export default function App() {
                   value={form.bookingDate}
                   onChange={(event) =>
                     setForm({ ...form, bookingDate: event.target.value })
+                  }
+                  required
+                />
+              </label>
+              <label>
+                Tiền cọc
+                <input
+                  type="number"
+                  min="0"
+                  value={form.depositAmount}
+                  onChange={(event) =>
+                    setForm({ ...form, depositAmount: Number(event.target.value) })
                   }
                   required
                 />
@@ -393,28 +496,14 @@ export default function App() {
               </label>
             </div>
 
-            <div className="grid-two">
-              <label>
-                Tiền cọc
-                <input
-                  type="number"
-                  min="0"
-                  value={form.depositAmount}
-                  onChange={(event) =>
-                    setForm({ ...form, depositAmount: Number(event.target.value) })
-                  }
-                  required
-                />
-              </label>
-              <label>
-                Ghi chú
-                <input
-                  value={form.notes}
-                  onChange={(event) => setForm({ ...form, notes: event.target.value })}
-                  placeholder="Thuê vợt, đến muộn, nhóm mới"
-                />
-              </label>
-            </div>
+            <label>
+              Ghi chú
+              <input
+                value={form.notes}
+                onChange={(event) => setForm({ ...form, notes: event.target.value })}
+                placeholder="Thuê vợt, đến muộn, nhóm mới"
+              />
+            </label>
 
             <div className="selected-court-card">
               <span className="selected-court-label">Quy trình</span>
@@ -520,7 +609,7 @@ export default function App() {
                       <div>
                         <h3>{booking.customerName}</h3>
                         <p>
-                          {booking.gender} - {booking.startTime} to {booking.endTime}
+                          {getGenderLabel(booking.gender)} - {getSkillLevelLabel(booking.skillLevel)}
                         </p>
                       </div>
                       <span className={`status status-${booking.status.toLowerCase()}`}>
@@ -529,7 +618,10 @@ export default function App() {
                     </div>
                     <div className="booking-meta">
                       <span>{booking.customerPhone}</span>
-                      <span>Deposit paid ({booking.depositAmount})</span>
+                      <span>Đã cọc ({booking.depositAmount})</span>
+                      <span>
+                        {booking.startTime} - {booking.endTime}
+                      </span>
                     </div>
                     <div className="booking-actions">
                       <button
@@ -556,7 +648,9 @@ export default function App() {
 
           <div className="panel-subhead history-subhead">
             <p className="panel-tag">Lịch sử đã phân</p>
-            <h3>{selectedCourt ? `${selectedCourt.name} - danh sách khách` : 'Khách đã phân sân'}</h3>
+            <h3>
+              {selectedCourt ? `${selectedCourt.name} - danh sách khách` : 'Khách đã phân sân'}
+            </h3>
           </div>
 
           <div className="schedule-list">
@@ -569,7 +663,7 @@ export default function App() {
                     <div>
                       <h3>{booking.customerName}</h3>
                       <p>
-                        {booking.bookingDate} - {booking.startTime} to {booking.endTime}
+                        {booking.bookingDate} - {booking.startTime} đến {booking.endTime}
                       </p>
                     </div>
                     <span className={`status status-${booking.status.toLowerCase()}`}>
@@ -579,7 +673,8 @@ export default function App() {
 
                   <div className="booking-meta">
                     <span>{booking.customerPhone}</span>
-                    <span>{booking.gender}</span>
+                    <span>{getGenderLabel(booking.gender)}</span>
+                    <span>{getSkillLevelLabel(booking.skillLevel)}</span>
                     <span>
                       Cọc {booking.depositPaid ? 'đã thanh toán' : 'đang chờ'} ({booking.depositAmount})
                     </span>
@@ -639,6 +734,32 @@ export default function App() {
                     >
                       Xóa đặt sân
                     </button>
+                  </div>
+
+                  <div className="match-tracking">
+                    <div className="match-tracking-head">
+                      <span className="selected-court-label">
+                        Theo dõi trận & trình độ sân nhóm
+                      </span>
+                      <strong>{getMatchTracking(booking.matchTracking).filter(Boolean).length}/7 lượt</strong>
+                    </div>
+                    <div className="match-tracking-grid">
+                      {getMatchTracking(booking.matchTracking).map((checked, index) => (
+                        <label
+                          key={index}
+                          className={checked ? 'match-box checked' : 'match-box'}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(event) =>
+                              void handleMatchTracking(booking.id, index, event.target.checked)
+                            }
+                          />
+                          <span>Lượt {index + 1}</span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
                 </article>
               ))

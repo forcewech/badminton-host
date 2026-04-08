@@ -54,6 +54,11 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ courtId }),
     }),
+  updateMatchTracking: (id: number, slot: number, checked: boolean) =>
+    request<Booking>(`/bookings/${id}/match-tracking`, {
+      method: 'PATCH',
+      body: JSON.stringify({ slot, checked }),
+    }),
   confirmDeposit: (id: number) =>
     request<Booking>(`/bookings/${id}/deposit`, {
       method: 'PATCH',

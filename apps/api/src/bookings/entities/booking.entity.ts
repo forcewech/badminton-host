@@ -8,6 +8,12 @@ export enum CustomerGender {
   OTHER = 'OTHER',
 }
 
+export enum SkillLevel {
+  BEGINNER = 'BEGINNER',
+  INTERMEDIATE = 'INTERMEDIATE',
+  ADVANCED = 'ADVANCED',
+}
+
 @Entity('bookings')
 export class Booking {
   @PrimaryGeneratedColumn()
@@ -25,6 +31,13 @@ export class Booking {
     default: CustomerGender.OTHER,
   })
   gender!: CustomerGender;
+
+  @Column({
+    type: 'enum',
+    enum: SkillLevel,
+    default: SkillLevel.BEGINNER,
+  })
+  skillLevel!: SkillLevel;
 
   @Column()
   bookingDate!: string;
@@ -53,6 +66,12 @@ export class Booking {
 
   @Column({ default: '' })
   notes!: string;
+
+  @Column({
+    type: 'jsonb',
+    default: () => "'[false,false,false,false,false,false,false]'",
+  })
+  matchTracking!: boolean[];
 
   @Column({ nullable: true })
   checkInAt?: string;

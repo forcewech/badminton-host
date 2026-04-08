@@ -6,6 +6,7 @@ import { CourtsService } from '../courts/courts.service';
 import { AssignCourtDto } from './dto/assign-court.dto';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { Booking } from './entities/booking.entity';
+import { UpdateMatchTrackingDto } from './dto/update-match-tracking.dto';
 
 @Injectable()
 export class BookingsService {
@@ -31,6 +32,7 @@ export class BookingsService {
       customerName: createBookingDto.customerName,
       customerPhone: createBookingDto.customerPhone,
       gender: createBookingDto.gender,
+      skillLevel: createBookingDto.skillLevel,
       bookingDate: createBookingDto.bookingDate,
       startTime: createBookingDto.startTime,
       endTime: createBookingDto.endTime,
@@ -39,6 +41,7 @@ export class BookingsService {
       notes: createBookingDto.notes ?? '',
       status: BookingStatus.CONFIRMED,
       court: null,
+      matchTracking: Array(7).fill(false),
     });
 
     return this.bookingsRepository.save(booking);
@@ -113,6 +116,20 @@ export class BookingsService {
     }
 
     booking.status = BookingStatus.NO_SHOW;
+    return this.bookingsRepository.save(booking);
+  }
+
+  async updateMatchTracking(id: number, updateMatchTrackingDto: UpdateMatchTrackingDto) {
+    const booking = await this.findById(id);
+
+    if (!booking.court) {
+      throw new BadRequestException('A court must be assigned before tracking matches.');
+    }
+
+    const matchTracking = [...(booking.matchTracking ?? Array(7).fill(false))];
+    matchTracking[updateMatchTrackingDto.slot] = updateMatchTrackingDto.checked;
+    booking.matchTracking = matchTracking;
+
     return this.bookingsRepository.save(booking);
   }
 

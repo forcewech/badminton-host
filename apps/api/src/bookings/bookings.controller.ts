@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post } from 
 import { AssignCourtDto } from './dto/assign-court.dto';
 import { BookingsService } from './bookings.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
+import { UpdateMatchTrackingDto } from './dto/update-match-tracking.dto';
 
 @Controller('bookings')
 export class BookingsController {
@@ -43,6 +44,14 @@ export class BookingsController {
   @Patch(':id/no-show')
   markNoShow(@Param('id', ParseIntPipe) id: number) {
     return this.bookingsService.markNoShow(id);
+  }
+
+  @Patch(':id/match-tracking')
+  updateMatchTracking(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateMatchTrackingDto: UpdateMatchTrackingDto,
+  ) {
+    return this.bookingsService.updateMatchTracking(id, updateMatchTrackingDto);
   }
 
   @Delete(':id')
