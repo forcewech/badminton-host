@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsDateString, IsInt, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString, Matches, Min } from 'class-validator';
+import { IsDateString, IsNotEmpty, IsNumber, IsOptional, IsString, Matches, Min } from 'class-validator';
 import { CustomerGender, SkillLevel } from '../entities/booking.entity';
 import { IsEnum } from 'class-validator';
 
@@ -9,8 +9,8 @@ export class CreateBookingDto {
   customerName!: string;
 
   @IsString()
-  @IsNotEmpty()
-  customerPhone!: string;
+  @IsOptional()
+  customerPhone?: string;
 
   @IsEnum(CustomerGender)
   gender!: CustomerGender;

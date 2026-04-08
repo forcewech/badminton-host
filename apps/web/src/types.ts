@@ -36,7 +36,7 @@ export type SkillLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
 export type Booking = {
   id: number;
   customerName: string;
-  customerPhone: string;
+  customerPhone?: string;
   gender: CustomerGender;
   skillLevel: SkillLevel;
   bookingDate: string;
@@ -67,7 +67,7 @@ export type DashboardOverview = {
 
 export type CreateBookingPayload = {
   customerName: string;
-  customerPhone: string;
+  customerPhone?: string;
   gender: CustomerGender;
   skillLevel: SkillLevel;
   bookingDate: string;

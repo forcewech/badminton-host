@@ -30,7 +30,7 @@ export class BookingsService {
 
     const booking = this.bookingsRepository.create({
       customerName: createBookingDto.customerName,
-      customerPhone: createBookingDto.customerPhone,
+      customerPhone: createBookingDto.customerPhone?.trim() ?? '',
       gender: createBookingDto.gender,
       skillLevel: createBookingDto.skillLevel,
       bookingDate: createBookingDto.bookingDate,

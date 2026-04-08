@@ -22,7 +22,7 @@ export class Booking {
   @Column()
   customerName!: string;
 
-  @Column()
+  @Column({ default: '' })
   customerPhone!: string;
 
   @Column({

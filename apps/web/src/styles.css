@@ -221,6 +221,24 @@ select {
   background: #f8fbfc;
 }
 
+.currency-input {
+  position: relative;
+}
+
+.currency-input input {
+  padding-right: 4.5rem;
+}
+
+.currency-suffix {
+  position: absolute;
+  top: 50%;
+  right: 0.95rem;
+  transform: translateY(-50%);
+  color: #90a2aa;
+  font-weight: 600;
+  pointer-events: none;
+}
+
 .primary-button,
 .ghost-button,
 .warning-button,
@@ -550,6 +568,7 @@ select {
 }
 
 .modal-backdrop-wide {
+  inset: 0;
   padding: 0;
 }
 
@@ -655,6 +674,20 @@ select {
 
   .fullscreen-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767px) {
+  .modal-backdrop-wide {
+    align-items: stretch;
+    justify-content: stretch;
+  }
+
+  .modal-card-fullscreen {
+    width: 100%;
+    height: 100%;
+    min-height: 100vh;
+    padding: 0.85rem;
   }
 }
 

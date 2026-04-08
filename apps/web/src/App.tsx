@@ -11,7 +11,13 @@ import type {
   SkillLevel,
 } from "./types";
 
-const today = new Date().toISOString().slice(0, 10);
+function getLocalDateInputValue() {
+  const now = new Date();
+  const timezoneOffset = now.getTimezoneOffset() * 60 * 1000;
+  return new Date(now.getTime() - timezoneOffset).toISOString().slice(0, 10);
+}
+
+const today = getLocalDateInputValue();
 
 const genderOptions: CustomerGender[] = ["MALE", "FEMALE", "OTHER"];
 const skillLevelOptions: SkillLevel[] = [
@@ -28,14 +34,14 @@ const initialForm: CreateBookingPayload = {
   bookingDate: today,
   startTime: "18:00",
   endTime: "19:00",
-  depositAmount: 200,
+  depositAmount: 30000,
   notes: "",
 };
 
 const initialCourtForm: CourtPayload = {
   name: "",
   zone: "",
-  hourlyRate: 0,
+  hourlyRate: 200000,
   isActive: true,
 };
 
@@ -72,6 +78,25 @@ function getMatchTracking(matchTracking?: boolean[]) {
   );
 }
 
+function normalizeCurrencyAmount(amount: number | string | null | undefined) {
+  const numericAmount = Number(amount);
+  return Number.isFinite(numericAmount) ? numericAmount : 0;
+}
+
+function formatCurrencyInputValue(amount: number | string) {
+  const baseValue = Math.floor(normalizeCurrencyAmount(amount) / 1000);
+  return baseValue.toLocaleString("en-US");
+}
+
+function formatCurrencyDisplay(amount: number | string) {
+  return normalizeCurrencyAmount(amount).toLocaleString("en-US");
+}
+
+function parseCurrencyInputValue(value: string) {
+  const digits = value.replace(/[^\d]/g, "");
+  return Number(digits || "0") * 1000;
+}
+
 function sortBookingsStable(bookings: Booking[]) {
   return [...bookings].sort((left, right) => {
     if (left.bookingDate !== right.bookingDate) {
@@ -96,7 +121,9 @@ export default function App() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [form, setForm] = useState<CreateBookingPayload>(initialForm);
   const [selectedCourtId, setSelectedCourtId] = useState<number>(1);
-  const [historyDate, setHistoryDate] = useState<string>(today);
+  const [historyDate, setHistoryDate] = useState<string>(() =>
+    getLocalDateInputValue(),
+  );
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [transferFilter, setTransferFilter] = useState<
     "all" | "paid" | "unpaid"
@@ -111,6 +138,28 @@ export default function App() {
   const [error, setError] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCourtSubmitting, setIsCourtSubmitting] = useState(false);
+
+  function renderCurrencyInput(
+    value: number | string,
+    onChange: (nextValue: number) => void,
+    ariaLabel: string,
+  ) {
+    return (
+      <div className="currency-input">
+        <input
+          type="text"
+          inputMode="numeric"
+          aria-label={ariaLabel}
+          value={formatCurrencyInputValue(value)}
+          onChange={(event) =>
+            onChange(parseCurrencyInputValue(event.target.value))
+          }
+          required
+        />
+        <span className="currency-suffix">,000</span>
+      </div>
+    );
+  }
 
   async function loadData() {
     try {
@@ -345,12 +394,12 @@ export default function App() {
         </div>
 
         <div className="booking-meta">
-          <span>{booking.customerPhone}</span>
+          {booking.customerPhone ? <span>{booking.customerPhone}</span> : null}
           <span>{getGenderLabel(booking.gender)}</span>
           <span>{getSkillLevelLabel(booking.skillLevel)}</span>
           <span>
             Cọc {booking.depositPaid ? "đã thanh toán" : "đang chờ"} (
-            {booking.depositAmount})
+            {formatCurrencyDisplay(booking.depositAmount)})
           </span>
           <span>
             Thanh toán đủ{" "}
@@ -599,7 +648,6 @@ export default function App() {
                     setForm({ ...form, customerPhone: event.target.value })
                   }
                   placeholder="0812345678"
-                  required
                 />
               </label>
             </div>
@@ -657,18 +705,15 @@ export default function App() {
               </label>
               <label>
                 Tiền cọc
-                <input
-                  type="number"
-                  min="0"
-                  value={form.depositAmount}
-                  onChange={(event) =>
+                {renderCurrencyInput(
+                  form.depositAmount,
+                  (depositAmount) =>
                     setForm({
                       ...form,
-                      depositAmount: Number(event.target.value),
-                    })
-                  }
-                  required
-                />
+                      depositAmount,
+                    }),
+                  "Tiền cọc",
+                )}
               </label>
             </div>
 
@@ -844,8 +889,10 @@ export default function App() {
                       </span>
                     </div>
                     <div className="booking-meta">
-                      <span>{booking.customerPhone}</span>
-                      <span>Đã cọc ({booking.depositAmount})</span>
+                      {booking.customerPhone ? (
+                        <span>{booking.customerPhone}</span>
+                      ) : null}
+                      <span>Đã cọc ({formatCurrencyDisplay(booking.depositAmount)})</span>
                       <span>
                         {booking.startTime} - {booking.endTime}
                       </span>
@@ -930,7 +977,9 @@ export default function App() {
                 <h3>{court.name}</h3>
                 <p>{court.zone}</p>
                 <ul>
-                  <li>Giá: {court.hourlyRate} THB/giờ</li>
+                  <li>
+                    Giá: {formatCurrencyDisplay(court.hourlyRate)} THB/giờ
+                  </li>
                   <li>
                     Trạng thái: {court.isActive ? "Đang hoạt động" : "Tạm dừng"}
                   </li>
@@ -1010,18 +1059,15 @@ export default function App() {
                 </label>
                 <label>
                   Giá theo giờ
-                  <input
-                    type="number"
-                    min="0"
-                    value={courtForm.hourlyRate}
-                    onChange={(event) =>
+                  {renderCurrencyInput(
+                    courtForm.hourlyRate,
+                    (hourlyRate) =>
                       setCourtForm({
                         ...courtForm,
-                        hourlyRate: Number(event.target.value),
-                      })
-                    }
-                    required
-                  />
+                        hourlyRate,
+                      }),
+                    "Giá theo giờ",
+                  )}
                 </label>
               </div>
 
@@ -1091,14 +1137,6 @@ export default function App() {
                 <span className="selected-court-label">Ngày theo dõi</span>
                 <strong>{historyDate}</strong>
                 <small>{historyBookings.length} khách đã phân sân</small>
-              </div>
-              <div className="selected-court-card">
-                <span className="selected-court-label">Mục tiêu</span>
-                <strong>Theo dõi trận đấu và quản lý danh sách khách</strong>
-                <small>
-                  Toàn màn hình, cuộn mượt và thao tác trực tiếp trên từng
-                  khách.
-                </small>
               </div>
             </div>
 
