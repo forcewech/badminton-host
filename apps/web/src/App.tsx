@@ -1,7 +1,8 @@
 import { FormEvent, useEffect, useState } from "react";
 import * as XLSX from "xlsx";
-import { api } from "./api";
+import { api, setApiAccessToken } from "./api";
 import type {
+  AuthSession,
   Booking,
   Court,
   CourtPayload,
@@ -10,6 +11,8 @@ import type {
   DashboardOverview,
   SkillLevel,
 } from "./types";
+
+const AUTH_STORAGE_KEY = "badminton-host-auth";
 
 function getLocalDateInputValue() {
   const now = new Date();
@@ -139,6 +142,24 @@ function sortBookingsStable(bookings: Booking[]) {
 }
 
 export default function App() {
+  const [authSession, setAuthSession] = useState<AuthSession | null>(() => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+
+    const storedSession = window.localStorage.getItem(AUTH_STORAGE_KEY);
+
+    if (!storedSession) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(storedSession) as AuthSession;
+    } catch {
+      window.localStorage.removeItem(AUTH_STORAGE_KEY);
+      return null;
+    }
+  });
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
   const [courts, setCourts] = useState<Court[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -163,9 +184,32 @@ export default function App() {
   );
   const [editingCourtId, setEditingCourtId] = useState<number | null>(null);
   const [error, setError] = useState<string>("");
+  const [loginForm, setLoginForm] = useState({
+    username: "",
+    password: "",
+  });
+  const [loginError, setLoginError] = useState("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCourtSubmitting, setIsCourtSubmitting] = useState(false);
   const [isPhotoUploading, setIsPhotoUploading] = useState(false);
+
+  useEffect(() => {
+    setApiAccessToken(authSession?.accessToken ?? "");
+
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (authSession) {
+      window.localStorage.setItem(
+        AUTH_STORAGE_KEY,
+        JSON.stringify(authSession),
+      );
+    } else {
+      window.localStorage.removeItem(AUTH_STORAGE_KEY);
+    }
+  }, [authSession]);
 
   function renderCurrencyInput(
     value: number | string,
@@ -245,6 +289,14 @@ export default function App() {
 
       setError("");
     } catch (loadError) {
+      if (
+        loadError instanceof Error &&
+        loadError.message.includes("đăng nhập")
+      ) {
+        setAuthSession(null);
+        setLoginError("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+      }
+
       setError(
         loadError instanceof Error
           ? loadError.message
@@ -254,8 +306,46 @@ export default function App() {
   }
 
   useEffect(() => {
+    if (!authSession) {
+      return;
+    }
+
     void loadData();
-  }, []);
+  }, [authSession]);
+
+  async function handleLogin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsLoggingIn(true);
+
+    try {
+      const session = await api.login(loginForm);
+      setAuthSession(session);
+      setLoginError("");
+      setError("");
+      setLoginForm({
+        username: "",
+        password: "",
+      });
+    } catch (loginSubmitError) {
+      setLoginError(
+        loginSubmitError instanceof Error
+          ? loginSubmitError.message
+          : "Không thể đăng nhập vào hệ thống.",
+      );
+    } finally {
+      setIsLoggingIn(false);
+    }
+  }
+
+  function handleLogout() {
+    setAuthSession(null);
+    setOverview(null);
+    setCourts([]);
+    setBookings([]);
+    setDetailBooking(null);
+    setFullscreenPhotoUrl(null);
+    setError("");
+  }
 
   useEffect(() => {
     if (!detailBooking) {
@@ -686,8 +776,80 @@ export default function App() {
             {unassignedBookings.length} khách đang chờ phân sân và{" "}
             {overview?.totals.pendingTransfers ?? 0} giao dịch còn chờ xác nhận.
           </p>
+          {authSession ? (
+            <button
+              type="button"
+              className="ghost-button auth-logout"
+              onClick={handleLogout}
+            >
+              Đăng xuất
+            </button>
+          ) : null}
         </div>
       </header>
+
+      {!authSession ? (
+        <div className="modal-backdrop auth-backdrop" role="presentation">
+          <div
+            className="modal-card auth-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="auth-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="auth-modal-copy">
+              <p className="panel-tag">Chào mừng</p>
+              <h2 id="auth-modal-title">Chào mừng đến với web</h2>
+              <p>
+                Vui lòng đăng nhập trước khi sử dụng hệ thống quản lý sân cầu
+                lông.
+              </p>
+            </div>
+
+            <form className="booking-form auth-form" onSubmit={handleLogin}>
+              <label>
+                Tài khoản
+                <input
+                  value={loginForm.username}
+                  onChange={(event) =>
+                    setLoginForm({
+                      ...loginForm,
+                      username: event.target.value,
+                    })
+                  }
+                  placeholder=""
+                  required
+                />
+              </label>
+              <label>
+                Mật khẩu
+                <input
+                  type="password"
+                  value={loginForm.password}
+                  onChange={(event) =>
+                    setLoginForm({
+                      ...loginForm,
+                      password: event.target.value,
+                    })
+                  }
+                  placeholder=""
+                  required
+                />
+              </label>
+              {loginError ? (
+                <div className="alert auth-alert">{loginError}</div>
+              ) : null}
+              <button
+                type="submit"
+                className="primary-button"
+                disabled={isLoggingIn}
+              >
+                {isLoggingIn ? "Đang đăng nhập..." : "Đăng nhập"}
+              </button>
+            </form>
+          </div>
+        </div>
+      ) : null}
 
       {error ? <div className="alert">{error}</div> : null}
 

@@ -69,6 +69,10 @@ select {
   backdrop-filter: blur(8px);
 }
 
+.auth-logout {
+  margin-top: 0.85rem;
+}
+
 .hero-note span,
 .hero-note p,
 .stat-card p,
@@ -693,6 +697,14 @@ select {
   z-index: 20;
 }
 
+.auth-backdrop {
+  z-index: 60;
+  background:
+    radial-gradient(circle at top, rgba(23, 108, 99, 0.24), transparent 28%),
+    rgba(9, 26, 35, 0.7);
+  backdrop-filter: blur(8px);
+}
+
 .customer-detail-backdrop {
   z-index: 40;
 }
@@ -709,6 +721,38 @@ select {
 
 .customer-detail-modal {
   width: min(880px, 100%);
+}
+
+.auth-modal {
+  width: min(480px, calc(100% - 1rem));
+  padding: 1.25rem;
+}
+
+.auth-modal-copy p:last-child {
+  margin-bottom: 0;
+}
+
+.auth-form {
+  margin-top: 1rem;
+}
+
+.auth-default-card {
+  display: grid;
+  gap: 0.25rem;
+  margin-top: 1rem;
+  padding: 0.95rem 1rem;
+  border-radius: 18px;
+  border: 1px solid #dbe7ea;
+  background: linear-gradient(180deg, #f7fbfc 0%, #eef6f7 100%);
+}
+
+.auth-default-card strong,
+.auth-default-card span {
+  margin: 0;
+}
+
+.auth-alert {
+  margin-top: 0;
 }
 
 .customer-detail-layout {

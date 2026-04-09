@@ -1,7 +1,10 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { resolve } from 'path';
+import { AuthModule } from './auth/auth.module';
+import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { Booking } from './bookings/entities/booking.entity';
 import { BookingsModule } from './bookings/bookings.module';
 import { Court } from './courts/entities/court.entity';
@@ -32,11 +35,18 @@ import { SeedModule } from './seed/seed.module';
         synchronize: true,
       }),
     }),
+    AuthModule,
     CourtsModule,
     EquipmentModule,
     BookingsModule,
     DashboardModule,
     SeedModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
   ],
 })
 export class AppModule {}

@@ -67,6 +67,19 @@ export type DashboardOverview = {
   };
 };
 
+export type LoginPayload = {
+  username: string;
+  password: string;
+};
+
+export type AuthSession = {
+  accessToken: string;
+  user: {
+    username: string;
+    role: 'admin';
+  };
+};
+
 export type CreateBookingPayload = {
   customerName: string;
   customerPhone?: string;

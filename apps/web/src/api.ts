@@ -1,19 +1,27 @@
 import type {
+  AuthSession,
   Booking,
   Court,
   CourtPayload,
   CreateBookingPayload,
   DashboardOverview,
   EquipmentItem,
+  LoginPayload,
 } from './types';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
+let accessToken = '';
+
+export function setApiAccessToken(token: string) {
+  accessToken = token;
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const isFormDataBody = init?.body instanceof FormData;
   const response = await fetch(`${API_URL}/api${path}`, {
     headers: {
       ...(isFormDataBody ? {} : { 'Content-Type': 'application/json' }),
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       ...(init?.headers ?? {}),
     },
     ...init,
@@ -28,6 +36,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  login: (payload: LoginPayload) =>
+    request<AuthSession>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
   getOverview: () => request<DashboardOverview>('/dashboard/overview'),
   getCourts: () => request<Court[]>('/courts'),
   createCourt: (payload: CourtPayload) =>
