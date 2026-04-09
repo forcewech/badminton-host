@@ -982,7 +982,7 @@ select {
 
 @media (max-width: 767px) {
   .shell {
-    width: calc(100% - 1rem);
+    width: calc(100% - 1.5rem);
     padding-bottom: 1.25rem;
   }
 
