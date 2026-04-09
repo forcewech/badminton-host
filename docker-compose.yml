@@ -32,7 +32,7 @@ services:
     build:
       context: ./apps/web
       args:
-        VITE_API_URL: ${VITE_API_URL:-http://localhost:3000}
+        VITE_API_URL: ${VITE_API_URL:-}
     container_name: badminton-web
     restart: unless-stopped
     depends_on:
