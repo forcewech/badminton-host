@@ -55,7 +55,15 @@ export class CloudinaryService {
           }
 
           resolve({
-            url: result.secure_url,
+            url: cloudinary.url(result.public_id, {
+              secure: true,
+              transformation: [
+                {
+                  fetch_format: "auto",
+                  quality: "auto",
+                },
+              ],
+            }),
             publicId: result.public_id,
           });
         },

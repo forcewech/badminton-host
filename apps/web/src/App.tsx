@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import * as XLSX from "xlsx";
+import { Toaster, toast } from "react-hot-toast";
 import { api, setApiAccessToken } from "./api";
 import type {
   AuthSession,
@@ -13,6 +14,8 @@ import type {
 } from "./types";
 
 const AUTH_STORAGE_KEY = "badminton-host-auth";
+
+type ToastKind = "success" | "info" | "warning" | "error";
 
 function getLocalDateInputValue() {
   const now = new Date();
@@ -49,6 +52,24 @@ const quickTimeSlots = [
     note: "Khung giờ muộn",
   },
 ];
+
+const mainSectionTabs = [
+  {
+    id: "management",
+    label: "Quản lý sân",
+    description: "Phân sân và theo dõi khách",
+  },
+  {
+    id: "reception",
+    label: "Tiếp nhận khách",
+    description: "Nhập khách và tiền cọc",
+  },
+  {
+    id: "inventory",
+    label: "Danh sách sân",
+    description: "Thêm, sửa và cập nhật sân",
+  },
+] as const;
 
 const initialForm: CreateBookingPayload = {
   customerName: "",
@@ -123,6 +144,22 @@ function parseCurrencyInputValue(value: string) {
   return Number(digits || "0") * 1000;
 }
 
+function getDisplayPhotoUrl(photoUrl?: string | null) {
+  if (!photoUrl) {
+    return "";
+  }
+
+  if (!photoUrl.includes("/upload/")) {
+    return photoUrl;
+  }
+
+  if (photoUrl.includes("/upload/f_auto,q_auto/")) {
+    return photoUrl;
+  }
+
+  return photoUrl.replace("/upload/", "/upload/f_auto,q_auto/");
+}
+
 function sortBookingsStable(bookings: Booking[]) {
   return [...bookings].sort((left, right) => {
     if (left.bookingDate !== right.bookingDate) {
@@ -141,7 +178,44 @@ function sortBookingsStable(bookings: Booking[]) {
   });
 }
 
+function showAppToast(kind: ToastKind, title: string, message: string) {
+  toast.custom(
+    (toastItem) => (
+      <div className={`app-toast app-toast-${kind}`}>
+        <div className={`app-toast-icon app-toast-icon-${kind}`}>
+          {kind === "success"
+            ? "✓"
+            : kind === "info"
+              ? "i"
+              : kind === "warning"
+                ? "!"
+                : "x"}
+        </div>
+        <div className="app-toast-copy">
+          <strong>{title}</strong>
+          <p>{message}</p>
+        </div>
+        <button
+          type="button"
+          className="app-toast-close"
+          onClick={() => toast.remove(toastItem.id)}
+          aria-label="Đóng thông báo"
+        >
+          ×
+        </button>
+      </div>
+    ),
+    {
+      duration: 3200,
+      position: "top-center",
+    },
+  );
+}
+
 export default function App() {
+  const [activeSectionTab, setActiveSectionTab] = useState<
+    (typeof mainSectionTabs)[number]["id"]
+  >("management");
   const [authSession, setAuthSession] = useState<AuthSession | null>(() => {
     if (typeof window === "undefined") {
       return null;
@@ -211,6 +285,22 @@ export default function App() {
     }
   }, [authSession]);
 
+  useEffect(() => {
+    if (!error) {
+      return;
+    }
+
+    showAppToast("error", "Something went wrong!", error);
+  }, [error]);
+
+  useEffect(() => {
+    if (!loginError) {
+      return;
+    }
+
+    showAppToast("warning", "Login failed", loginError);
+  }, [loginError]);
+
   function renderCurrencyInput(
     value: number | string,
     onChange: (nextValue: number) => void,
@@ -253,6 +343,7 @@ export default function App() {
         photoPublicId: uploadResult.publicId,
       }));
       setError("");
+      showAppToast("success", "Tải ảnh thành công", "Ảnh khách đã được lưu sẵn.");
     } catch (uploadError) {
       setError(
         uploadError instanceof Error
@@ -326,6 +417,7 @@ export default function App() {
         username: "",
         password: "",
       });
+      showAppToast("success", "Congratulations!", "Đăng nhập thành công.");
     } catch (loginSubmitError) {
       setLoginError(
         loginSubmitError instanceof Error
@@ -345,6 +437,7 @@ export default function App() {
     setDetailBooking(null);
     setFullscreenPhotoUrl(null);
     setError("");
+    showAppToast("info", "Did you know?", "Bạn đã đăng xuất khỏi hệ thống.");
   }
 
   useEffect(() => {
@@ -369,6 +462,7 @@ export default function App() {
       await api.createBooking(form);
       setForm(initialForm);
       await loadData();
+      showAppToast("success", "Congratulations!", "Đã thêm khách vào danh sách.");
     } catch (submitError) {
       setError(
         submitError instanceof Error
@@ -389,6 +483,7 @@ export default function App() {
     try {
       await api.assignCourt(id, selectedCourtId);
       await loadData();
+      showAppToast("success", "Congratulations!", "Đã phân sân cho khách.");
     } catch (actionError) {
       setError(
         actionError instanceof Error
@@ -398,23 +493,11 @@ export default function App() {
     }
   }
 
-  async function handleDeposit(id: number) {
-    try {
-      await api.confirmDeposit(id);
-      await loadData();
-    } catch (actionError) {
-      setError(
-        actionError instanceof Error
-          ? actionError.message
-          : "Cập nhật tiền cọc thất bại",
-      );
-    }
-  }
-
   async function handleCheckIn(id: number) {
     try {
       await api.checkIn(id);
       await loadData();
+      showAppToast("success", "Congratulations!", "Đã check-in khách.");
     } catch (actionError) {
       setError(
         actionError instanceof Error
@@ -428,6 +511,7 @@ export default function App() {
     try {
       await api.confirmFullPayment(id);
       await loadData();
+      showAppToast("success", "Congratulations!", "Đã xác nhận thanh toán đủ.");
     } catch (actionError) {
       setError(
         actionError instanceof Error
@@ -441,6 +525,7 @@ export default function App() {
     try {
       await api.markNoShow(id);
       await loadData();
+      showAppToast("warning", "Warning!", "Khách đã được đánh dấu không đến.");
     } catch (actionError) {
       setError(
         actionError instanceof Error
@@ -454,6 +539,7 @@ export default function App() {
     try {
       await api.deleteBooking(id);
       await loadData();
+      showAppToast("info", "Did you know?", "Đã xóa booking của khách.");
     } catch (actionError) {
       setError(
         actionError instanceof Error
@@ -471,6 +557,11 @@ export default function App() {
     try {
       await api.updateMatchTracking(id, slot, checked);
       await loadData();
+      showAppToast(
+        "info",
+        "Did you know?",
+        checked ? "Đã đánh dấu hoàn thành lượt chơi." : "Đã bỏ đánh dấu lượt chơi.",
+      );
     } catch (actionError) {
       setError(
         actionError instanceof Error
@@ -510,8 +601,10 @@ export default function App() {
     try {
       if (editingCourtId) {
         await api.updateCourt(editingCourtId, courtForm);
+        showAppToast("success", "Congratulations!", "Đã cập nhật thông tin sân.");
       } else {
         await api.createCourt(courtForm);
+        showAppToast("success", "Congratulations!", "Đã thêm sân mới.");
       }
 
       closeCourtModal();
@@ -531,6 +624,7 @@ export default function App() {
     try {
       await api.deleteCourt(id);
       await loadData();
+      showAppToast("info", "Did you know?", "Đã xóa sân khỏi danh sách.");
     } catch (deleteError) {
       setError(
         deleteError instanceof Error ? deleteError.message : "Xóa sân thất bại",
@@ -543,7 +637,11 @@ export default function App() {
     className = "booking-card",
   ) {
     return (
-      <article key={booking.id} className={className}>
+      <article
+        key={booking.id}
+        className={`${className} booking-card-clickable ${booking.gender === "FEMALE" ? "booking-card-female" : ""}`}
+        onClick={() => setDetailBooking(booking)}
+      >
         <div className="booking-card-top">
           <div>
             <h3>{booking.customerName}</h3>
@@ -576,25 +674,7 @@ export default function App() {
           </div>
         ) : null}
 
-        <div className="booking-actions">
-          <button
-            type="button"
-            className="ghost-button view-button"
-            onClick={() => setDetailBooking(booking)}
-          >
-            <span className="view-icon" aria-hidden="true">
-              👁
-            </span>
-            Xem khách
-          </button>
-          <button
-            type="button"
-            className="ghost-button"
-            disabled={booking.depositPaid || booking.status === "NO_SHOW"}
-            onClick={() => handleDeposit(booking.id)}
-          >
-            Xác nhận cọc
-          </button>
+        <div className="booking-actions" onClick={(event) => event.stopPropagation()}>
           <button
             type="button"
             className="primary-button"
@@ -639,7 +719,10 @@ export default function App() {
           </button>
         </div>
 
-        <div className="match-tracking">
+        <div
+          className="match-tracking"
+          onClick={(event) => event.stopPropagation()}
+        >
           <div className="match-tracking-head">
             <span className="selected-court-label">
               Theo dõi trận & trình độ sân nhóm
@@ -755,6 +838,15 @@ export default function App() {
 
   return (
     <div className="shell">
+      <Toaster
+        position="top-center"
+        gutter={14}
+        containerStyle={{
+          top: 20,
+          left: 16,
+          right: 16,
+        }}
+      />
       <header className="hero">
         <div>
           <p className="eyebrow">Quản Lý Sân Cầu Lông</p>
@@ -869,7 +961,26 @@ export default function App() {
         />
       </section>
 
-      <main className="layout">
+      <nav className="section-tabs" aria-label="Điều hướng khu vực chính">
+        {mainSectionTabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            className={
+              activeSectionTab === tab.id
+                ? "section-tab-button active"
+                : "section-tab-button"
+            }
+            onClick={() => setActiveSectionTab(tab.id)}
+          >
+            <span>{tab.label}</span>
+            <small>{tab.description}</small>
+          </button>
+        ))}
+      </nav>
+
+      <main className="tab-panel-shell">
+        {activeSectionTab === "reception" ? (
         <section className="panel panel-form">
           <div className="panel-head">
             <div>
@@ -1057,7 +1168,7 @@ export default function App() {
               <div className="avatar-frame avatar-frame-sm">
                 {form.photoUrl ? (
                   <img
-                    src={form.photoUrl}
+                    src={getDisplayPhotoUrl(form.photoUrl)}
                     alt="Ảnh khách đang chọn"
                     className="avatar-image"
                   />
@@ -1098,7 +1209,9 @@ export default function App() {
             </button>
           </form>
         </section>
+        ) : null}
 
+        {activeSectionTab === "management" ? (
         <section className="panel">
           <div className="panel-head">
             <div>
@@ -1200,7 +1313,8 @@ export default function App() {
                 unassignedBookings.map((booking) => (
                   <article
                     key={booking.id}
-                    className="booking-card compact-card"
+                    className={`booking-card compact-card booking-card-clickable ${booking.gender === "FEMALE" ? "booking-card-female" : ""}`}
+                    onClick={() => setDetailBooking(booking)}
                   >
                     <div className="booking-card-top">
                       <div>
@@ -1232,7 +1346,10 @@ export default function App() {
                         <strong>Ghi chú:</strong> {booking.notes}
                       </div>
                     ) : null}
-                    <div className="booking-actions">
+                    <div
+                      className="booking-actions"
+                      onClick={(event) => event.stopPropagation()}
+                    >
                       <button
                         type="button"
                         className="primary-button"
@@ -1288,8 +1405,10 @@ export default function App() {
             )}
           </div>
         </section>
+        ) : null}
       </main>
 
+      {activeSectionTab === "inventory" ? (
       <section className="court-inventory-section">
         <section className="panel">
           <div className="panel-head">
@@ -1340,6 +1459,7 @@ export default function App() {
           </div>
         </section>
       </section>
+      ) : null}
 
       {isCourtModalOpen ? (
         <div
@@ -1477,7 +1597,7 @@ export default function App() {
                 <div className="avatar-frame avatar-frame-lg">
                   {detailBooking.photoUrl ? (
                     <img
-                      src={detailBooking.photoUrl}
+                      src={getDisplayPhotoUrl(detailBooking.photoUrl)}
                       alt={`Ảnh của ${detailBooking.customerName}`}
                       className="avatar-image"
                     />
@@ -1558,7 +1678,7 @@ export default function App() {
               Đóng
             </button>
             <img
-              src={fullscreenPhotoUrl}
+              src={getDisplayPhotoUrl(fullscreenPhotoUrl)}
               alt="Ảnh khách toàn màn hình"
               className="photo-lightbox-image"
             />
