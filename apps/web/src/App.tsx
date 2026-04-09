@@ -57,6 +57,8 @@ const initialForm: CreateBookingPayload = {
   endTime: "19:00",
   depositAmount: 30000,
   notes: "",
+  photoUrl: "",
+  photoPublicId: "",
 };
 
 const initialCourtForm: CourtPayload = {
@@ -155,10 +157,15 @@ export default function App() {
   const [courtForm, setCourtForm] = useState<CourtPayload>(initialCourtForm);
   const [isCourtModalOpen, setIsCourtModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [detailBooking, setDetailBooking] = useState<Booking | null>(null);
+  const [fullscreenPhotoUrl, setFullscreenPhotoUrl] = useState<string | null>(
+    null,
+  );
   const [editingCourtId, setEditingCourtId] = useState<number | null>(null);
   const [error, setError] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCourtSubmitting, setIsCourtSubmitting] = useState(false);
+  const [isPhotoUploading, setIsPhotoUploading] = useState(false);
 
   function renderCurrencyInput(
     value: number | string,
@@ -180,6 +187,37 @@ export default function App() {
         <span className="currency-suffix">,000</span>
       </div>
     );
+  }
+
+  async function handlePhotoSelected(file: File | null) {
+    if (!file) {
+      setForm((currentForm) => ({
+        ...currentForm,
+        photoUrl: "",
+        photoPublicId: "",
+      }));
+      return;
+    }
+
+    setIsPhotoUploading(true);
+
+    try {
+      const uploadResult = await api.uploadBookingPhoto(file);
+      setForm((currentForm) => ({
+        ...currentForm,
+        photoUrl: uploadResult.url,
+        photoPublicId: uploadResult.publicId,
+      }));
+      setError("");
+    } catch (uploadError) {
+      setError(
+        uploadError instanceof Error
+          ? uploadError.message
+          : "Không thể tải ảnh khách lên",
+      );
+    } finally {
+      setIsPhotoUploading(false);
+    }
   }
 
   async function loadData() {
@@ -218,6 +256,20 @@ export default function App() {
   useEffect(() => {
     void loadData();
   }, []);
+
+  useEffect(() => {
+    if (!detailBooking) {
+      return;
+    }
+
+    const latestBooking = bookings.find(
+      (booking) => booking.id === detailBooking.id,
+    );
+
+    if (latestBooking) {
+      setDetailBooking(latestBooking);
+    }
+  }, [bookings, detailBooking]);
 
   async function handleBookingSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -437,6 +489,16 @@ export default function App() {
         <div className="booking-actions">
           <button
             type="button"
+            className="ghost-button view-button"
+            onClick={() => setDetailBooking(booking)}
+          >
+            <span className="view-icon" aria-hidden="true">
+              👁
+            </span>
+            Xem khách
+          </button>
+          <button
+            type="button"
             className="ghost-button"
             disabled={booking.depositPaid || booking.status === "NO_SHOW"}
             onClick={() => handleDeposit(booking.id)}
@@ -575,21 +637,21 @@ export default function App() {
 
   function exportHistoryToExcel() {
     const rows = historyBookings.map((booking) => ({
-      Court: booking.court?.name ?? "Chưa phân sân",
-      Date: booking.bookingDate,
-      Start: booking.startTime,
-      End: booking.endTime,
-      CustomerName: booking.customerName,
-      Gender: getGenderLabel(booking.gender),
-      SkillLevel: getSkillLevelLabel(booking.skillLevel),
-      Phone: booking.customerPhone,
-      DepositAmount: booking.depositAmount,
-      DepositPaid: booking.depositPaid ? "Có" : "Không",
-      FullTransfer: booking.fullPaymentTransferred ? "Có" : "Không",
-      PlaysCompleted: getMatchTracking(booking.matchTracking).filter(Boolean)
+      "Tên sân": booking.court?.name ?? "Chưa phân sân",
+      Ngày: booking.bookingDate,
+      "Giờ bắt đầu": booking.startTime,
+      "Giờ kết thúc": booking.endTime,
+      "Tên khách hàng": booking.customerName,
+      "Giới tính": getGenderLabel(booking.gender),
+      "Trình độ": getSkillLevelLabel(booking.skillLevel),
+      "Số điện thoại": booking.customerPhone,
+      "Số tiền cọc": booking.depositAmount,
+      "Đã thanh toán cọc": booking.depositPaid ? "Có" : "Không",
+      "Đã chuyển khoản": booking.fullPaymentTransferred ? "Có" : "Không",
+      "Lượt đã chơi": getMatchTracking(booking.matchTracking).filter(Boolean)
         .length,
-      Status: booking.status,
-      Notes: booking.notes,
+      "Trạng thái": booking.status,
+      "Ghi chú": booking.notes,
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(rows);
@@ -786,7 +848,11 @@ export default function App() {
                     <button
                       key={`${slot.startTime}-${slot.endTime}`}
                       type="button"
-                      className={isActive ? "time-slot-button active" : "time-slot-button"}
+                      className={
+                        isActive
+                          ? "time-slot-button active"
+                          : "time-slot-button"
+                      }
                       onClick={() =>
                         setForm({
                           ...form,
@@ -814,6 +880,43 @@ export default function App() {
               />
             </label>
 
+            <label>
+              Ảnh khách hàng (tùy chọn)
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(event) =>
+                  void handlePhotoSelected(event.target.files?.[0] ?? null)
+                }
+              />
+            </label>
+
+            <div className="photo-upload-card">
+              <div className="avatar-frame avatar-frame-sm">
+                {form.photoUrl ? (
+                  <img
+                    src={form.photoUrl}
+                    alt="Ảnh khách đang chọn"
+                    className="avatar-image"
+                  />
+                ) : (
+                  <div className="avatar-placeholder avatar-placeholder-sm" />
+                )}
+              </div>
+              <div className="photo-upload-copy">
+                <strong>
+                  {isPhotoUploading
+                    ? "Đang tải ảnh lên..."
+                    : "Ảnh đại diện khách"}
+                </strong>
+                <small>
+                  {form.photoUrl
+                    ? "Ảnh đã sẵn sàng và sẽ được lưu cùng thông tin khách."
+                    : "Có thể bỏ qua nếu khách không cung cấp ảnh."}
+                </small>
+              </div>
+            </div>
+
             <div className="selected-court-card">
               <span className="selected-court-label">Quy trình</span>
               <strong>
@@ -825,9 +928,11 @@ export default function App() {
             <button
               className="primary-button"
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isPhotoUploading}
             >
-              {isSubmitting ? "Đang lưu..." : "Thêm khách đặt sân"}
+              {isSubmitting || isPhotoUploading
+                ? "Đang lưu..."
+                : "Thêm khách đặt sân"}
             </button>
           </form>
         </section>
@@ -953,7 +1058,9 @@ export default function App() {
                       {booking.customerPhone ? (
                         <span>{booking.customerPhone}</span>
                       ) : null}
-                      <span>Đã cọc ({formatCurrencyDisplay(booking.depositAmount)})</span>
+                      <span>
+                        Đã cọc ({formatCurrencyDisplay(booking.depositAmount)})
+                      </span>
                       <span>
                         {booking.startTime} - {booking.endTime}
                       </span>
@@ -1163,6 +1270,136 @@ export default function App() {
                     : "Tạo sân"}
               </button>
             </form>
+          </div>
+        </div>
+      ) : null}
+
+      {detailBooking ? (
+        <div
+          className="modal-backdrop"
+          role="presentation"
+          onClick={() => setDetailBooking(null)}
+        >
+          <div
+            className="modal-card customer-detail-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="customer-detail-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="panel-head">
+              <div>
+                <p className="panel-tag">Chi tiết khách</p>
+                <h2 id="customer-detail-title">{detailBooking.customerName}</h2>
+              </div>
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={() => setDetailBooking(null)}
+              >
+                Đóng
+              </button>
+            </div>
+
+            <div className="customer-detail-layout">
+              <button
+                type="button"
+                className="avatar-button"
+                onClick={() =>
+                  detailBooking.photoUrl
+                    ? setFullscreenPhotoUrl(detailBooking.photoUrl)
+                    : undefined
+                }
+                disabled={!detailBooking.photoUrl}
+              >
+                <div className="avatar-frame avatar-frame-lg">
+                  {detailBooking.photoUrl ? (
+                    <img
+                      src={detailBooking.photoUrl}
+                      alt={`Ảnh của ${detailBooking.customerName}`}
+                      className="avatar-image"
+                    />
+                  ) : (
+                    <div className="avatar-placeholder avatar-placeholder-lg" />
+                  )}
+                </div>
+              </button>
+
+              <div className="customer-detail-grid">
+                <div className="customer-detail-item">
+                  <span>Trạng thái</span>
+                  <strong>{detailBooking.status}</strong>
+                </div>
+                <div className="customer-detail-item">
+                  <span>Giới tính</span>
+                  <strong>{getGenderLabel(detailBooking.gender)}</strong>
+                </div>
+                <div className="customer-detail-item">
+                  <span>Trình độ</span>
+                  <strong>
+                    {getSkillLevelLabel(detailBooking.skillLevel)}
+                  </strong>
+                </div>
+                <div className="customer-detail-item">
+                  <span>Số điện thoại</span>
+                  <strong>{detailBooking.customerPhone || "Không có"}</strong>
+                </div>
+                <div className="customer-detail-item">
+                  <span>Ngày chơi</span>
+                  <strong>{detailBooking.bookingDate}</strong>
+                </div>
+                <div className="customer-detail-item">
+                  <span>Khung giờ</span>
+                  <strong>{`${detailBooking.startTime} - ${detailBooking.endTime}`}</strong>
+                </div>
+                <div className="customer-detail-item">
+                  <span>Tiền cọc</span>
+                  <strong>
+                    {formatCurrencyDisplay(detailBooking.depositAmount)}
+                  </strong>
+                </div>
+                <div className="customer-detail-item">
+                  <span>Sân</span>
+                  <strong>
+                    {detailBooking.court?.name ?? "Chưa phân sân"}
+                  </strong>
+                </div>
+              </div>
+            </div>
+
+            <div className="customer-detail-note">
+              <span className="selected-court-label">Ghi chú</span>
+              <p>{detailBooking.notes || "Không có ghi chú."}</p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {fullscreenPhotoUrl ? (
+        <div
+          className="modal-backdrop photo-lightbox"
+          role="presentation"
+          onClick={() => setFullscreenPhotoUrl(null)}
+        >
+          <div
+            className="photo-lightbox-card"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Ảnh khách toàn màn hình"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="ghost-button photo-lightbox-close"
+              onClick={() => setFullscreenPhotoUrl(null)}
+            >
+              Đóng
+            </button>
+            <img
+              src={fullscreenPhotoUrl}
+              alt="Ảnh khách toàn màn hình"
+              className="photo-lightbox-image"
+            />
           </div>
         </div>
       ) : null}

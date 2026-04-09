@@ -7,6 +7,7 @@ import { AssignCourtDto } from './dto/assign-court.dto';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { Booking } from './entities/booking.entity';
 import { UpdateMatchTrackingDto } from './dto/update-match-tracking.dto';
+import { CloudinaryService } from './cloudinary.service';
 
 @Injectable()
 export class BookingsService {
@@ -14,6 +15,7 @@ export class BookingsService {
     @InjectRepository(Booking)
     private readonly bookingsRepository: Repository<Booking>,
     private readonly courtsService: CourtsService,
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
 
   findAll() {
@@ -39,6 +41,8 @@ export class BookingsService {
       depositAmount: createBookingDto.depositAmount,
       depositPaid: createBookingDto.depositAmount > 0,
       notes: createBookingDto.notes ?? '',
+      photoUrl: createBookingDto.photoUrl ?? null,
+      photoPublicId: createBookingDto.photoPublicId ?? null,
       status: BookingStatus.CONFIRMED,
       court: null,
       matchTracking: Array(7).fill(false),
@@ -135,6 +139,11 @@ export class BookingsService {
 
   async remove(id: number) {
     const booking = await this.findById(id);
+
+    if (booking.photoPublicId) {
+      await this.cloudinaryService.deleteCustomerPhoto(booking.photoPublicId);
+    }
+
     await this.bookingsRepository.remove(booking);
     return { id, deleted: true };
   }

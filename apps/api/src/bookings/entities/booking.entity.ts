@@ -67,6 +67,12 @@ export class Booking {
   @Column({ default: '' })
   notes!: string;
 
+  @Column({ type: 'text', nullable: true })
+  photoUrl?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  photoPublicId?: string | null;
+
   @Column({
     type: 'jsonb',
     default: () => "'[false,false,false,false,false,false,false]'",

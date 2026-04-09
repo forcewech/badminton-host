@@ -17,6 +17,8 @@ services:
       context: ./apps/api
     container_name: badminton-api
     restart: unless-stopped
+    env_file:
+      - ./apps/api/.env
     environment:
       PORT: ${PORT:-3000}
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-badminton_court}

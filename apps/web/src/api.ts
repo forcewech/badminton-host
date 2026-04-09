@@ -10,9 +10,10 @@ import type {
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const isFormDataBody = init?.body instanceof FormData;
   const response = await fetch(`${API_URL}/api${path}`, {
     headers: {
-      'Content-Type': 'application/json',
+      ...(isFormDataBody ? {} : { 'Content-Type': 'application/json' }),
       ...(init?.headers ?? {}),
     },
     ...init,
@@ -49,6 +50,15 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
+  uploadBookingPhoto: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    return request<{ url: string; publicId: string }>('/bookings/upload-photo', {
+      method: 'POST',
+      body: formData,
+    });
+  },
   assignCourt: (id: number, courtId: number) =>
     request<Booking>(`/bookings/${id}/assign-court`, {
       method: 'PATCH',

@@ -1,12 +1,28 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { AssignCourtDto } from './dto/assign-court.dto';
+import { CloudinaryService } from './cloudinary.service';
 import { BookingsService } from './bookings.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { UpdateMatchTrackingDto } from './dto/update-match-tracking.dto';
 
 @Controller('bookings')
 export class BookingsController {
-  constructor(private readonly bookingsService: BookingsService) {}
+  constructor(
+    private readonly bookingsService: BookingsService,
+    private readonly cloudinaryService: CloudinaryService,
+  ) {}
 
   @Get()
   findAll() {
@@ -16,6 +32,12 @@ export class BookingsController {
   @Post()
   create(@Body() createBookingDto: CreateBookingDto) {
     return this.bookingsService.create(createBookingDto);
+  }
+
+  @Post('upload-photo')
+  @UseInterceptors(FileInterceptor('file'))
+  uploadPhoto(@UploadedFile() file: { buffer?: Buffer; mimetype?: string }) {
+    return this.cloudinaryService.uploadCustomerPhoto(file);
   }
 
   @Patch(':id/assign-court')

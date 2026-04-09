@@ -47,6 +47,8 @@ export type Booking = {
   fullPaymentTransferred: boolean;
   status: BookingStatus;
   notes: string;
+  photoUrl?: string | null;
+  photoPublicId?: string | null;
   matchTracking: boolean[];
   checkInAt?: string;
   paymentTransferredAt?: string;
@@ -75,4 +77,6 @@ export type CreateBookingPayload = {
   endTime: string;
   depositAmount: number;
   notes?: string;
+  photoUrl?: string;
+  photoPublicId?: string;
 };
