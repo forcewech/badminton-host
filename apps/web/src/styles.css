@@ -2,7 +2,11 @@
   font-family: "Segoe UI", "Helvetica Neue", sans-serif;
   color: #13313d;
   background:
-    radial-gradient(circle at top left, rgba(216, 245, 233, 0.9), transparent 30%),
+    radial-gradient(
+      circle at top left,
+      rgba(216, 245, 233, 0.9),
+      transparent 30%
+    ),
     linear-gradient(180deg, #f6fbf7 0%, #eef4f7 100%);
   line-height: 1.5;
   font-weight: 400;
@@ -15,7 +19,6 @@
 body {
   margin: 0;
   min-width: 320px;
-  overflow-x: hidden;
 }
 
 button,
@@ -253,8 +256,11 @@ select {
   padding: 0.9rem;
   border: 1px solid #d8e5e9;
   border-radius: 18px;
-  background:
-    linear-gradient(180deg, rgba(240, 248, 250, 0.95) 0%, rgba(248, 251, 252, 0.95) 100%);
+  background: linear-gradient(
+    180deg,
+    rgba(240, 248, 250, 0.95) 0%,
+    rgba(248, 251, 252, 0.95) 100%
+  );
 }
 
 .time-slot-grid {
@@ -378,7 +384,9 @@ select {
   border-radius: 999px;
   padding: 0.8rem 1rem;
   cursor: pointer;
-  transition: transform 0.15s ease, opacity 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    opacity 0.15s ease;
 }
 
 .primary-button:hover,
