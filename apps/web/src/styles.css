@@ -15,6 +15,7 @@
 body {
   margin: 0;
   min-width: 320px;
+  overflow-x: hidden;
 }
 
 button,
@@ -27,6 +28,7 @@ select {
   width: min(1280px, calc(100% - 1.5rem));
   margin: 0 auto;
   padding: 1rem 0 2rem;
+  overflow-x: clip;
 }
 
 .hero {
@@ -145,6 +147,8 @@ select {
   justify-content: space-between;
   align-items: start;
   margin-bottom: 1rem;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .booking-form label,
@@ -457,6 +461,7 @@ select {
 .equipment-card {
   justify-content: space-between;
   gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .booking-meta,
@@ -471,6 +476,8 @@ select {
   border-radius: 999px;
   background: #eaf4f2;
   font-size: 0.85rem;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .booking-note {
@@ -581,6 +588,7 @@ select {
   display: flex;
   gap: 0.75rem;
   margin-top: 1rem;
+  flex-wrap: wrap;
 }
 
 .court-grid {
@@ -640,6 +648,7 @@ select {
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .view-button {
@@ -713,6 +722,7 @@ select {
   width: min(720px, 100%);
   max-height: calc(100vh - 2rem);
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 1rem;
   border-radius: 22px;
   background: #ffffff;
@@ -962,6 +972,79 @@ select {
 }
 
 @media (max-width: 767px) {
+  .shell {
+    width: calc(100% - 1rem);
+    padding-bottom: 1.25rem;
+  }
+
+  .hero {
+    padding: 1rem;
+    border-radius: 20px;
+  }
+
+  .panel,
+  .stat-card,
+  .booking-card,
+  .court-card {
+    border-radius: 18px;
+  }
+
+  .panel {
+    padding: 0.9rem;
+  }
+
+  .panel-head,
+  .booking-card-top,
+  .history-subhead-row,
+  .match-tracking-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .court-tab {
+    min-width: 124px;
+    padding: 0.8rem 0.9rem;
+  }
+
+  .booking-actions,
+  .court-actions {
+    flex-direction: column;
+  }
+
+  .booking-actions button,
+  .court-actions button,
+  .view-button,
+  .export-button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .photo-upload-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .avatar-frame-lg {
+    width: min(180px, 100%);
+    height: auto;
+    aspect-ratio: 1 / 1;
+  }
+
+  .customer-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .customer-detail-item,
+  .customer-detail-note,
+  .selected-court-card,
+  .time-slot-picker {
+    padding: 0.85rem;
+  }
+
+  .modal-backdrop {
+    padding: 0.5rem;
+  }
+
   .photo-upload-card {
     align-items: flex-start;
   }
@@ -974,6 +1057,7 @@ select {
 
   .avatar-button {
     justify-self: center;
+    width: 100%;
   }
 
   .modal-backdrop-wide {
@@ -986,6 +1070,13 @@ select {
     height: 100%;
     min-height: 100vh;
     padding: 0.85rem;
+  }
+
+  .fullscreen-history-list,
+  .schedule-list,
+  .queue-list,
+  .court-grid {
+    padding-right: 0;
   }
 }
 
