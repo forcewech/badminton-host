@@ -18,7 +18,8 @@ function getDefaultApiUrl() {
   return `${protocol}//${hostname}:3000`;
 }
 
-const API_URL = import.meta.env.VITE_API_URL ?? getDefaultApiUrl();
+const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
+const API_URL = configuredApiUrl || getDefaultApiUrl();
 let accessToken = '';
 
 export function setApiAccessToken(token: string) {
