@@ -26,6 +26,27 @@ const skillLevelOptions: SkillLevel[] = [
   "ADVANCED",
 ];
 
+const quickTimeSlots = [
+  {
+    startTime: "19:00",
+    endTime: "21:00",
+    label: "7:00 PM - 9:00 PM",
+    note: "Khung giờ tối phổ biến",
+  },
+  {
+    startTime: "20:00",
+    endTime: "22:00",
+    label: "8:00 PM - 10:00 PM",
+    note: "Phù hợp nhóm đi làm",
+  },
+  {
+    startTime: "21:00",
+    endTime: "23:00",
+    label: "9:00 PM - 11:00 PM",
+    note: "Khung giờ muộn",
+  },
+];
+
 const initialForm: CreateBookingPayload = {
   customerName: "",
   customerPhone: "",
@@ -407,6 +428,12 @@ export default function App() {
           </span>
         </div>
 
+        {booking.notes ? (
+          <div className="booking-note">
+            <strong>Ghi chú:</strong> {booking.notes}
+          </div>
+        ) : null}
+
         <div className="booking-actions">
           <button
             type="button"
@@ -742,6 +769,40 @@ export default function App() {
               </label>
             </div>
 
+            <div className="time-slot-picker">
+              <div className="panel-subhead">
+                <div>
+                  <p className="panel-tag">Khung giờ nhanh</p>
+                  <h3>Chọn nhanh thời gian chơi</h3>
+                </div>
+              </div>
+              <div className="time-slot-grid">
+                {quickTimeSlots.map((slot) => {
+                  const isActive =
+                    form.startTime === slot.startTime &&
+                    form.endTime === slot.endTime;
+
+                  return (
+                    <button
+                      key={`${slot.startTime}-${slot.endTime}`}
+                      type="button"
+                      className={isActive ? "time-slot-button active" : "time-slot-button"}
+                      onClick={() =>
+                        setForm({
+                          ...form,
+                          startTime: slot.startTime,
+                          endTime: slot.endTime,
+                        })
+                      }
+                    >
+                      <span className="time-slot-label">{slot.label}</span>
+                      <small className="time-slot-meta">{slot.note}</small>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             <label>
               Ghi chú
               <input
@@ -897,6 +958,11 @@ export default function App() {
                         {booking.startTime} - {booking.endTime}
                       </span>
                     </div>
+                    {booking.notes ? (
+                      <div className="booking-note">
+                        <strong>Ghi chú:</strong> {booking.notes}
+                      </div>
+                    ) : null}
                     <div className="booking-actions">
                       <button
                         type="button"

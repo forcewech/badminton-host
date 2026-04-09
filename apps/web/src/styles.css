@@ -239,6 +239,65 @@ select {
   pointer-events: none;
 }
 
+.time-slot-picker {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.9rem;
+  border: 1px solid #d8e5e9;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(240, 248, 250, 0.95) 0%, rgba(248, 251, 252, 0.95) 100%);
+}
+
+.time-slot-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.time-slot-button {
+  display: grid;
+  gap: 0.2rem;
+  width: 100%;
+  padding: 0.95rem 1rem;
+  border: 1px solid #c8d7de;
+  border-radius: 18px;
+  background: #ffffff;
+  color: #13313d;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(19, 49, 61, 0.06);
+  transition:
+    transform 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+
+.time-slot-button:hover {
+  transform: translateY(-1px);
+  border-color: #7cb0aa;
+  box-shadow: 0 12px 24px rgba(22, 95, 89, 0.12);
+}
+
+.time-slot-button.active {
+  border-color: #165f59;
+  background: linear-gradient(135deg, #165f59 0%, #1d766e 100%);
+  color: #f7fffc;
+  box-shadow: 0 14px 28px rgba(22, 95, 89, 0.22);
+}
+
+.time-slot-label {
+  font-weight: 700;
+}
+
+.time-slot-meta {
+  color: #5d737d;
+}
+
+.time-slot-button.active .time-slot-meta {
+  color: rgba(247, 255, 252, 0.82);
+}
+
 .primary-button,
 .ghost-button,
 .warning-button,
@@ -344,6 +403,19 @@ select {
   border-radius: 999px;
   background: #eaf4f2;
   font-size: 0.85rem;
+}
+
+.booking-note {
+  margin-top: 0.8rem;
+  padding: 0.8rem 0.9rem;
+  border-radius: 14px;
+  background: #f4f8fa;
+  border: 1px solid #d8e5e9;
+  color: #35515c;
+}
+
+.booking-note strong {
+  color: #13313d;
 }
 
 .match-tracking {
@@ -658,6 +730,10 @@ select {
 
   .grid-two {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .time-slot-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .grid-three {
