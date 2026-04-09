@@ -251,6 +251,7 @@ export default function App() {
   >("all");
   const [courtForm, setCourtForm] = useState<CourtPayload>(initialCourtForm);
   const [isCourtModalOpen, setIsCourtModalOpen] = useState(false);
+  const [isQueueModalOpen, setIsQueueModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [detailBooking, setDetailBooking] = useState<Booking | null>(null);
   const [fullscreenPhotoUrl, setFullscreenPhotoUrl] = useState<string | null>(
@@ -1300,9 +1301,21 @@ export default function App() {
           </div>
 
           <div className="assignment-queue">
-            <div className="panel-subhead">
+            <div className="panel-subhead history-subhead">
               <p className="panel-tag">Danh sách chờ</p>
-              <h3>Khách hàng đang chờ phân sân</h3>
+              <div className="history-subhead-row">
+                <h3>Khách hàng đang chờ phân sân</h3>
+                <button
+                  type="button"
+                  className="ghost-button view-button"
+                  onClick={() => setIsQueueModalOpen(true)}
+                >
+                  <span className="view-icon" aria-hidden="true">
+                    👁
+                  </span>
+                  <span>Xem</span>
+                </button>
+              </div>
             </div>
             <div className="queue-list">
               {unassignedBookings.length === 0 ? (
@@ -1684,6 +1697,111 @@ export default function App() {
             />
           </div>
         </div>
+        ) : null}
+
+      {isQueueModalOpen ? (
+        <div
+          className="modal-backdrop modal-backdrop-wide"
+          role="presentation"
+          onClick={() => setIsQueueModalOpen(false)}
+        >
+          <div
+            className="modal-card modal-card-fullscreen"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="queue-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="panel-head modal-head-sticky">
+              <div>
+                <h2 id="queue-modal-title">{`Danh sách chờ - ${historyDate}`}</h2>
+              </div>
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={() => setIsQueueModalOpen(false)}
+              >
+                Đóng
+              </button>
+            </div>
+
+            <div className="fullscreen-history-list">
+              {unassignedBookings.length === 0 ? (
+                <p className="empty-state">
+                  Không có khách nào chờ phân sân trong ngày này.
+                </p>
+              ) : (
+                unassignedBookings.map((booking) => (
+                  <article
+                    key={booking.id}
+                    className={`booking-card compact-card stadium-card booking-card-clickable ${booking.gender === "FEMALE" ? "booking-card-female" : ""}`}
+                    onClick={() => setDetailBooking(booking)}
+                  >
+                    <div className="booking-card-top">
+                      <div>
+                        <h3>{booking.customerName}</h3>
+                        <p>
+                          {getGenderLabel(booking.gender)} -{" "}
+                          {getSkillLevelLabel(booking.skillLevel)}
+                        </p>
+                      </div>
+                      <span
+                        className={`status status-${booking.status.toLowerCase()}`}
+                      >
+                        {booking.status}
+                      </span>
+                    </div>
+                    <div className="booking-meta">
+                      <span>{booking.bookingDate}</span>
+                      <span>
+                        {booking.startTime} đến {booking.endTime}
+                      </span>
+                      {booking.depositPaid ? (
+                        <span>
+                          Cọc đã thanh toán (
+                          {formatCurrencyDisplay(booking.depositAmount)})
+                        </span>
+                      ) : (
+                        <span>Chưa thanh toán cọc</span>
+                      )}
+                    </div>
+                    {booking.notes ? (
+                      <div className="booking-note">
+                        <strong>Ghi chú</strong>
+                        <p>{booking.notes}</p>
+                      </div>
+                    ) : null}
+                    <div
+                      className="booking-actions"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      {selectedCourt ? (
+                        <button
+                          type="button"
+                          className="primary-button"
+                          onClick={() => handleAssignCourt(booking.id)}
+                        >
+                          Phân vào {selectedCourt.name}
+                        </button>
+                      ) : (
+                        <button type="button" className="ghost-button" disabled>
+                          Chọn sân để phân
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="warning-button"
+                        onClick={() => handleDeleteBooking(booking.id)}
+                      >
+                        Xóa đặt sân
+                      </button>
+                    </div>
+                  </article>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
       ) : null}
 
       {isHistoryModalOpen ? (
@@ -1699,33 +1817,22 @@ export default function App() {
             aria-labelledby="history-modal-title"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="panel-head modal-head-sticky">
-              <div>
-                <p className="panel-tag">Theo dõi sân</p>
-                <h2 id="history-modal-title">
-                  {selectedCourt
-                    ? `${selectedCourt.name} - theo dõi trận & danh sách khách`
-                    : "Theo dõi trận"}
-                </h2>
-              </div>
-              <button
-                type="button"
-                className="ghost-button"
+              <div className="panel-head modal-head-sticky">
+                <div>
+                  <h2 id="history-modal-title">
+                    {`Theo dõi sân - ${selectedCourt?.name ?? "Sân chưa chọn"} - ${historyDate}`}
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  className="ghost-button"
                 onClick={() => setIsHistoryModalOpen(false)}
               >
                 Đóng
               </button>
             </div>
 
-            <div className="fullscreen-summary">
-              <div className="selected-court-card">
-                <span className="selected-court-label">Ngày theo dõi</span>
-                <strong>{historyDate}</strong>
-                <small>{historyBookings.length} khách đã phân sân</small>
-              </div>
-            </div>
-
-            <div className="fullscreen-history-list">
+              <div className="fullscreen-history-list">
               {historyBookings.length === 0 ? (
                 <p className="empty-state">
                   Không có khách nào được phân vào sân này trong ngày này.
