@@ -9,7 +9,16 @@ import type {
   LoginPayload,
 } from './types';
 
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
+function getDefaultApiUrl() {
+  if (typeof window === 'undefined') {
+    return 'http://localhost:3000';
+  }
+
+  const { protocol, hostname } = window.location;
+  return `${protocol}//${hostname}:3000`;
+}
+
+const API_URL = import.meta.env.VITE_API_URL ?? getDefaultApiUrl();
 let accessToken = '';
 
 export function setApiAccessToken(token: string) {
