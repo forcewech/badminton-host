@@ -991,6 +991,24 @@ select {
     border-radius: 20px;
   }
 
+  .hero h1,
+  .panel h2 {
+    font-size: 1.15rem;
+    line-height: 1.35;
+  }
+
+  .intro,
+  .hero-note p,
+  .selected-court-card small,
+  .empty-state {
+    font-size: 0.9rem;
+  }
+
+  .panel-tag,
+  .selected-court-label {
+    font-size: 0.72rem;
+  }
+
   .panel,
   .stat-card,
   .booking-card,
@@ -999,7 +1017,24 @@ select {
   }
 
   .panel {
-    padding: 0.9rem;
+    padding: 0.75rem;
+  }
+
+  .booking-form {
+    gap: 0.75rem;
+  }
+
+  .booking-form label,
+  .history-filter {
+    font-size: 0.88rem;
+  }
+
+  .booking-form input,
+  .booking-form select,
+  .history-filter input,
+  .history-filter select {
+    padding: 0.72rem 0.8rem;
+    border-radius: 12px;
   }
 
   .panel-head,
@@ -1011,8 +1046,8 @@ select {
   }
 
   .court-tab {
-    min-width: 124px;
-    padding: 0.8rem 0.9rem;
+    min-width: 112px;
+    padding: 0.72rem 0.8rem;
   }
 
   .booking-actions,
@@ -1047,7 +1082,26 @@ select {
   .customer-detail-note,
   .selected-court-card,
   .time-slot-picker {
-    padding: 0.85rem;
+    padding: 0.75rem;
+  }
+
+  .booking-meta,
+  .booking-actions,
+  .management-toolbar {
+    gap: 0.55rem;
+  }
+
+  .booking-meta span {
+    font-size: 0.78rem;
+    padding: 0.3rem 0.5rem;
+  }
+
+  .match-box {
+    padding: 0.62rem 0.7rem;
+  }
+
+  .match-box span {
+    font-size: 0.84rem;
   }
 
   .modal-backdrop {
