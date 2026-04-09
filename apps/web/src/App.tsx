@@ -1276,7 +1276,7 @@ export default function App() {
 
       {detailBooking ? (
         <div
-          className="modal-backdrop"
+          className="modal-backdrop customer-detail-backdrop"
           role="presentation"
           onClick={() => setDetailBooking(null)}
         >

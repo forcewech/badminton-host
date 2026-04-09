@@ -693,6 +693,10 @@ select {
   z-index: 20;
 }
 
+.customer-detail-backdrop {
+  z-index: 40;
+}
+
 .modal-card {
   width: min(720px, 100%);
   max-height: calc(100vh - 2rem);
@@ -762,7 +766,7 @@ select {
 .photo-lightbox {
   padding: 0;
   background: rgba(8, 20, 28, 0.88);
-  z-index: 30;
+  z-index: 50;
 }
 
 .photo-lightbox-card {
