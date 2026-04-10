@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Badminton icon">
+  <defs>
+    <linearGradient id="feather" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f8fffe" />
+      <stop offset="100%" stop-color="#d8efe8" />
+    </linearGradient>
+    <linearGradient id="base" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0e5b54" />
+      <stop offset="100%" stop-color="#22836f" />
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="url(#base)" />
+  <g transform="translate(6 5)">
+    <path d="M22 8C18 15 18 24 22 32L28 30C26 23 26 17 29 11Z" fill="url(#feather)" />
+    <path d="M30 7C27 15 27 26 31 34L37 32C35 24 35 15 38 9Z" fill="url(#feather)" />
+    <path d="M38 10C36 18 37 28 42 36L47 33C44 26 44 18 46 12Z" fill="url(#feather)" />
+    <path d="M21 34L43 24" stroke="#d4ebe4" stroke-width="2.5" stroke-linecap="round" />
+    <circle cx="18" cy="39" r="8.5" fill="#f6d56b" stroke="#153541" stroke-width="3" />
+    <circle cx="18" cy="39" r="2.2" fill="#153541" />
+  </g>
+</svg>

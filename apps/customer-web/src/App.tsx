@@ -592,7 +592,7 @@ export default function App() {
             <div className="success-modal-icon" aria-hidden="true">
               ✓
             </div>
-            <p className="panel-tag">Đặc cược thành công</p>
+            <p className="panel-tag">Đặc cọc thành công</p>
             <h2>Chúc mừng, hệ thống đã nhận tiền cọc của bạn.</h2>
             <p>
               {bookingSummary?.customerName} đã được ghi nhận lịch chơi vào{" "}
