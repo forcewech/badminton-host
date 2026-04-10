@@ -764,6 +764,8 @@ export default function App() {
   const unassignedBookings = sortBookingsStable(
     bookings
       .filter((booking) => booking.bookingDate === historyDate)
+      .filter((booking) => booking.depositPaid)
+      .filter((booking) => booking.status === "CONFIRMED")
       .filter((booking) => booking.court === null)
       .filter((booking) =>
         booking.customerName

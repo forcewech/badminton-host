@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from "@nestjs/common";
@@ -18,6 +19,8 @@ import { CloudinaryService } from "./cloudinary.service";
 
 @Injectable()
 export class BookingsService {
+  private readonly logger = new Logger(BookingsService.name);
+
   constructor(
     @InjectRepository(Booking)
     private readonly bookingsRepository: Repository<Booking>,
@@ -141,7 +144,13 @@ export class BookingsService {
     this.verifyWebhookSecret(payload, headers);
 
     const transaction = this.extractTransaction(payload);
+    this.logger.log(
+      `Received payment callback: transactionId=${transaction.transactionId ?? "unknown"} reference=${transaction.reference ?? "missing"} amount=${transaction.amount ?? "unknown"}`,
+    );
     if (!transaction.reference) {
+      this.logger.warn(
+        "Payment callback ignored because no deposit reference was found.",
+      );
       return {
         received: true,
         matched: false,
@@ -154,6 +163,9 @@ export class BookingsService {
     });
 
     if (!booking) {
+      this.logger.warn(
+        `Payment callback did not match any booking for reference ${transaction.reference}.`,
+      );
       return {
         received: true,
         matched: false,
@@ -167,6 +179,9 @@ export class BookingsService {
       expectedAmount > 0 &&
       transaction.amount < expectedAmount
     ) {
+      this.logger.warn(
+        `Payment callback amount ${transaction.amount} is lower than expected deposit ${expectedAmount} for reference ${transaction.reference}.`,
+      );
       return {
         received: true,
         matched: false,
@@ -183,6 +198,9 @@ export class BookingsService {
     }
 
     const savedBooking = await this.bookingsRepository.save(booking);
+    this.logger.log(
+      `Deposit confirmed for booking ${savedBooking.id} with reference ${savedBooking.depositReference}.`,
+    );
 
     return {
       received: true,

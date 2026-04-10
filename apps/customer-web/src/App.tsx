@@ -121,7 +121,7 @@ export default function App() {
 
     setHasHandledSuccessfulPayment(true);
     setIsSuccessModalOpen(true);
-    toast.success("Da xac nhan tien coc. Hen ban tren san.");
+    toast.success("Đã xác nhận tiền cọc. Hẹn bạn trên sân.");
   }, [hasHandledSuccessfulPayment, isPaid]);
 
   const bookingSummary = useMemo(() => {
