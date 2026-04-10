@@ -4,11 +4,12 @@
   "private": true,
   "description": "Monolith project for badminton court reception and court management.",
   "scripts": {
-    "install:all": "npm install --prefix apps/api && npm install --prefix apps/web",
+    "install:all": "npm install --prefix apps/api && npm install --prefix apps/web && npm install --prefix apps/customer-web",
     "dev:api": "npm --prefix apps/api run start:dev",
     "dev:web": "npm --prefix apps/web run dev",
-    "build": "npm --prefix apps/api run build && npm --prefix apps/web run build",
-    "lint": "npm --prefix apps/api run lint && npm --prefix apps/web run lint",
+    "dev:customer": "npm --prefix apps/customer-web run dev",
+    "build": "npm --prefix apps/api run build && npm --prefix apps/web run build && npm --prefix apps/customer-web run build",
+    "lint": "npm --prefix apps/api run lint && npm --prefix apps/web run lint && npm --prefix apps/customer-web run lint",
     "test": "npm --prefix apps/api run test",
     "docker:up": "docker compose up --build",
     "docker:down": "docker compose down"

@@ -54,6 +54,18 @@ export class Booking {
   @Column({ default: false })
   depositPaid!: boolean;
 
+  @Column({ type: 'varchar', length: 64, nullable: true, unique: true })
+  depositReference?: string | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  depositPaidAt?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  depositTransferNote?: string | null;
+
+  @Column({ type: 'varchar', length: 128, nullable: true })
+  depositTransactionId?: string | null;
+
   @Column({ default: false })
   fullPaymentTransferred!: boolean;
 

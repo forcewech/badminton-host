@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   Param,
   ParseIntPipe,
   Patch,
@@ -11,10 +12,12 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Public } from '../auth/public.decorator';
 import { AssignCourtDto } from './dto/assign-court.dto';
 import { CloudinaryService } from './cloudinary.service';
 import { BookingsService } from './bookings.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
+import { CreatePublicBookingDto } from './dto/create-public-booking.dto';
 import { UpdateMatchTrackingDto } from './dto/update-match-tracking.dto';
 
 @Controller('bookings')
@@ -34,6 +37,28 @@ export class BookingsController {
     return this.bookingsService.create(createBookingDto);
   }
 
+  @Public()
+  @Post('public')
+  createPublic(@Body() createPublicBookingDto: CreatePublicBookingDto) {
+    return this.bookingsService.createPublic(createPublicBookingDto);
+  }
+
+  @Public()
+  @Get('public/:reference/status')
+  getPublicPaymentStatus(@Param('reference') reference: string) {
+    return this.bookingsService.getPublicPaymentStatus(reference);
+  }
+
+  @Public()
+  @Post('payment-webhook')
+  processPaymentWebhook(
+    @Body() payload: Record<string, unknown>,
+    @Headers() headers: Record<string, string | string[] | undefined>,
+  ) {
+    return this.bookingsService.processDepositWebhook(payload, headers);
+  }
+
+  @Public()
   @Post('upload-photo')
   @UseInterceptors(FileInterceptor('file'))
   uploadPhoto(@UploadedFile() file: { buffer?: Buffer; mimetype?: string }) {

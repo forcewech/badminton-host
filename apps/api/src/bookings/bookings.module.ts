@@ -5,10 +5,12 @@ import { CloudinaryService } from './cloudinary.service';
 import { Booking } from './entities/booking.entity';
 import { BookingsController } from './bookings.controller';
 import { BookingsService } from './bookings.service';
+import { PaymentController } from './payment.controller';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Booking]), CourtsModule],
-  controllers: [BookingsController],
+  controllers: [BookingsController, PaymentController],
   providers: [BookingsService, CloudinaryService],
+  exports: [BookingsService],
 })
 export class BookingsModule {}
