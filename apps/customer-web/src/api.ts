@@ -2,6 +2,7 @@ import type {
   PublicBookingPayload,
   PublicBookingResponse,
   PublicPaymentStatus,
+  QuickSlot,
 } from "./types";
 
 function getDefaultApiUrl() {
@@ -53,4 +54,6 @@ export const api = {
   },
   getPaymentStatus: (reference: string) =>
     request<PublicPaymentStatus>(`/bookings/public/${reference}/status`),
+  getQuickSlots: (date: string) =>
+    request<QuickSlot[]>(`/quick-slots?date=${encodeURIComponent(date)}`),
 };

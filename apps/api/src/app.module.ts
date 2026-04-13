@@ -12,6 +12,8 @@ import { CourtsModule } from './courts/courts.module';
 import { EquipmentItem } from './equipment/entities/equipment-item.entity';
 import { EquipmentModule } from './equipment/equipment.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { QuickSlot } from './quick-slots/entities/quick-slot.entity';
+import { QuickSlotsModule } from './quick-slots/quick-slots.module';
 import { SeedModule } from './seed/seed.module';
 
 @Module({
@@ -25,21 +27,33 @@ import { SeedModule } from './seed/seed.module';
     }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres' as const,
-        url: configService.get<string>(
-          'DATABASE_URL',
-          'postgresql://postgres:postgres@localhost:5432/badminton_court',
-        ),
-        entities: [Booking, Court, EquipmentItem],
-        synchronize: true,
-      }),
+      useFactory: (configService: ConfigService) => {
+        const databaseUrl = configService.get<string>('DATABASE_URL', '');
+        const sslEnabled =
+          configService.get<string>('DATABASE_SSL', 'true') === 'true';
+        const rejectUnauthorized =
+          configService.get<string>(
+            'DATABASE_SSL_REJECT_UNAUTHORIZED',
+            'false',
+          ) === 'true';
+        const synchronize =
+          configService.get<string>('TYPEORM_SYNCHRONIZE', 'true') === 'true';
+
+        return {
+          type: 'postgres' as const,
+          url: databaseUrl,
+          ssl: sslEnabled ? { rejectUnauthorized } : false,
+          entities: [Booking, Court, EquipmentItem, QuickSlot],
+          synchronize,
+        };
+      },
     }),
     AuthModule,
     CourtsModule,
     EquipmentModule,
     BookingsModule,
     DashboardModule,
+    QuickSlotsModule,
     SeedModule,
   ],
   providers: [

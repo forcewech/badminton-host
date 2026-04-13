@@ -13,6 +13,19 @@ export type CourtPayload = {
   isActive: boolean;
 };
 
+export type QuickSlot = {
+  id: number;
+  bookingDate: string;
+  startTime: string;
+  endTime: string;
+};
+
+export type QuickSlotPayload = {
+  bookingDate: string;
+  startTime: string;
+  endTime: string;
+};
+
 export type EquipmentItem = {
   id: number;
   name: string;

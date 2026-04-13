@@ -10,6 +10,7 @@ import type {
   CreateBookingPayload,
   CustomerGender,
   DashboardOverview,
+  QuickSlot,
   SkillLevel,
 } from "./types";
 
@@ -69,6 +70,11 @@ const mainSectionTabs = [
     label: "Danh sách sân",
     description: "Thêm, sửa và cập nhật sân",
   },
+  {
+    id: "quick_slots",
+    label: "Khung giờ chơi",
+    description: "Thêm và xóa khung giờ theo ngày",
+  },
 ] as const;
 
 const initialForm: CreateBookingPayload = {
@@ -91,6 +97,22 @@ const initialCourtForm: CourtPayload = {
   hourlyRate: 200000,
   isActive: true,
 };
+
+function formatQuickSlotLabel(startTime: string, endTime: string) {
+  const formatTime = (time: string) => {
+    const [hours, minutes] = time.split(":").map(Number);
+    const date = new Date();
+    date.setHours(hours, minutes, 0, 0);
+
+    return new Intl.DateTimeFormat("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }).format(date);
+  };
+
+  return `${formatTime(startTime)} - ${formatTime(endTime)}`;
+}
 
 function getSkillLevelLabel(skillLevel: SkillLevel) {
   switch (skillLevel) {
@@ -213,9 +235,8 @@ function showAppToast(kind: ToastKind, title: string, message: string) {
 }
 
 export default function App() {
-  const [activeSectionTab, setActiveSectionTab] = useState<
-    (typeof mainSectionTabs)[number]["id"]
-  >("management");
+  const [activeSectionTab, setActiveSectionTab] =
+    useState<(typeof mainSectionTabs)[number]["id"]>("management");
   const [authSession, setAuthSession] = useState<AuthSession | null>(() => {
     if (typeof window === "undefined") {
       return null;
@@ -237,7 +258,16 @@ export default function App() {
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
   const [courts, setCourts] = useState<Court[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [quickSlots, setQuickSlots] = useState<QuickSlot[]>([]);
+  const [slotManagementDate, setSlotManagementDate] = useState<string>(today);
+  const [slotManagementSlots, setSlotManagementSlots] = useState<QuickSlot[]>(
+    [],
+  );
   const [form, setForm] = useState<CreateBookingPayload>(initialForm);
+  const [quickSlotDraft, setQuickSlotDraft] = useState({
+    startTime: "19:00",
+    endTime: "21:00",
+  });
   const [selectedCourtId, setSelectedCourtId] = useState<number>(1);
   const [historyDate, setHistoryDate] = useState<string>(() =>
     getLocalDateInputValue(),
@@ -267,6 +297,7 @@ export default function App() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCourtSubmitting, setIsCourtSubmitting] = useState(false);
+  const [isQuickSlotSubmitting, setIsQuickSlotSubmitting] = useState(false);
   const [isPhotoUploading, setIsPhotoUploading] = useState(false);
 
   useEffect(() => {
@@ -344,7 +375,11 @@ export default function App() {
         photoPublicId: uploadResult.publicId,
       }));
       setError("");
-      showAppToast("success", "Tải ảnh thành công", "Ảnh khách đã được lưu sẵn.");
+      showAppToast(
+        "success",
+        "Tải ảnh thành công",
+        "Ảnh khách đã được lưu sẵn.",
+      );
     } catch (uploadError) {
       setError(
         uploadError instanceof Error
@@ -353,6 +388,34 @@ export default function App() {
       );
     } finally {
       setIsPhotoUploading(false);
+    }
+  }
+
+  async function loadQuickSlots(bookingDate: string) {
+    try {
+      const quickSlotsData = await api.getQuickSlots(bookingDate);
+      setQuickSlots(quickSlotsData);
+      setError("");
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "KhÃ´ng thá»ƒ táº£i khung giá» nhanh",
+      );
+    }
+  }
+
+  async function loadSlotManagementQuickSlots(bookingDate: string) {
+    try {
+      const quickSlotsData = await api.getQuickSlots(bookingDate);
+      setSlotManagementSlots(quickSlotsData);
+      setError("");
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "KhÃ´ng thá»ƒ táº£i danh sÃ¡ch khung giá» theo ngÃ y",
+      );
     }
   }
 
@@ -404,6 +467,43 @@ export default function App() {
 
     void loadData();
   }, [authSession]);
+
+  useEffect(() => {
+    if (!authSession) {
+      return;
+    }
+
+    void loadQuickSlots(form.bookingDate);
+  }, [authSession, form.bookingDate]);
+
+  useEffect(() => {
+    if (!authSession) {
+      return;
+    }
+
+    void loadSlotManagementQuickSlots(slotManagementDate);
+  }, [authSession, slotManagementDate]);
+
+  useEffect(() => {
+    if (quickSlots.length === 0) {
+      return;
+    }
+
+    const hasMatchingSlot = quickSlots.some(
+      (slot) =>
+        slot.startTime === form.startTime && slot.endTime === form.endTime,
+    );
+
+    if (hasMatchingSlot) {
+      return;
+    }
+
+    setForm((currentForm) => ({
+      ...currentForm,
+      startTime: quickSlots[0].startTime,
+      endTime: quickSlots[0].endTime,
+    }));
+  }, [quickSlots, form.startTime, form.endTime]);
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -463,7 +563,11 @@ export default function App() {
       await api.createBooking(form);
       setForm(initialForm);
       await loadData();
-      showAppToast("success", "Congratulations!", "Đã thêm khách vào danh sách.");
+      showAppToast(
+        "success",
+        "Congratulations!",
+        "Đã thêm khách vào danh sách.",
+      );
     } catch (submitError) {
       setError(
         submitError instanceof Error
@@ -472,6 +576,60 @@ export default function App() {
       );
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function handleQuickSlotCreate() {
+    setIsQuickSlotSubmitting(true);
+
+    try {
+      await api.createQuickSlot({
+        bookingDate: slotManagementDate,
+        startTime: quickSlotDraft.startTime,
+        endTime: quickSlotDraft.endTime,
+      });
+      await Promise.all([
+        loadSlotManagementQuickSlots(slotManagementDate),
+        form.bookingDate === slotManagementDate
+          ? loadQuickSlots(slotManagementDate)
+          : Promise.resolve(),
+      ]);
+      showAppToast(
+        "success",
+        "Congratulations!",
+        "Thêm khung giờ chơi mới vào ngày đã chọn thành công.",
+      );
+    } catch (actionError) {
+      setError(
+        actionError instanceof Error
+          ? actionError.message
+          : "KhÃ´ng thá»ƒ thÃªm khung giá» nhanh",
+      );
+    } finally {
+      setIsQuickSlotSubmitting(false);
+    }
+  }
+
+  async function handleQuickSlotDelete(id: number) {
+    try {
+      await api.deleteQuickSlot(id);
+      await Promise.all([
+        loadSlotManagementQuickSlots(slotManagementDate),
+        form.bookingDate === slotManagementDate
+          ? loadQuickSlots(slotManagementDate)
+          : Promise.resolve(),
+      ]);
+      showAppToast(
+        "info",
+        "Did you know?",
+        "Đã xóa khung giờ chơi khỏi ngày đã chọn.",
+      );
+    } catch (actionError) {
+      setError(
+        actionError instanceof Error
+          ? actionError.message
+          : "KhÃ´ng thá»ƒ xÃ³a khung giá» nhanh",
+      );
     }
   }
 
@@ -561,7 +719,9 @@ export default function App() {
       showAppToast(
         "info",
         "Did you know?",
-        checked ? "Đã đánh dấu hoàn thành lượt chơi." : "Đã bỏ đánh dấu lượt chơi.",
+        checked
+          ? "Đã đánh dấu hoàn thành lượt chơi."
+          : "Đã bỏ đánh dấu lượt chơi.",
       );
     } catch (actionError) {
       setError(
@@ -602,7 +762,11 @@ export default function App() {
     try {
       if (editingCourtId) {
         await api.updateCourt(editingCourtId, courtForm);
-        showAppToast("success", "Congratulations!", "Đã cập nhật thông tin sân.");
+        showAppToast(
+          "success",
+          "Congratulations!",
+          "Đã cập nhật thông tin sân.",
+        );
       } else {
         await api.createCourt(courtForm);
         showAppToast("success", "Congratulations!", "Đã thêm sân mới.");
@@ -675,7 +839,10 @@ export default function App() {
           </div>
         ) : null}
 
-        <div className="booking-actions" onClick={(event) => event.stopPropagation()}>
+        <div
+          className="booking-actions"
+          onClick={(event) => event.stopPropagation()}
+        >
           <button
             type="button"
             className="primary-button"
@@ -984,333 +1151,436 @@ export default function App() {
 
       <main className="tab-panel-shell">
         {activeSectionTab === "reception" ? (
-        <section className="panel panel-form">
-          <div className="panel-head">
-            <div>
-              <p className="panel-tag">Tiếp nhận khách</p>
-              <h2>Nhập danh sách khách đã cọc</h2>
-            </div>
-          </div>
-
-          <form className="booking-form" onSubmit={handleBookingSubmit}>
-            <div className="grid-two">
-              <label>
-                Tên khách hàng
-                <input
-                  value={form.customerName}
-                  onChange={(event) =>
-                    setForm({ ...form, customerName: event.target.value })
-                  }
-                  placeholder="Nguyễn Văn A"
-                  required
-                />
-              </label>
-              <label>
-                Số điện thoại
-                <input
-                  value={form.customerPhone}
-                  onChange={(event) =>
-                    setForm({ ...form, customerPhone: event.target.value })
-                  }
-                  placeholder="0812345678"
-                />
-              </label>
+          <section className="panel panel-form">
+            <div className="panel-head">
+              <div>
+                <p className="panel-tag">Tiếp nhận khách</p>
+                <h2>Nhập danh sách khách đã cọc</h2>
+              </div>
             </div>
 
-            <div className="grid-two">
-              <label>
-                Giới tính
-                <select
-                  value={form.gender}
-                  onChange={(event) =>
-                    setForm({
-                      ...form,
-                      gender: event.target.value as CustomerGender,
-                    })
-                  }
-                >
-                  {genderOptions.map((gender) => (
-                    <option key={gender} value={gender}>
-                      {getGenderLabel(gender)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Trình độ
-                <select
-                  value={form.skillLevel}
-                  onChange={(event) =>
-                    setForm({
-                      ...form,
-                      skillLevel: event.target.value as SkillLevel,
-                    })
-                  }
-                >
-                  {skillLevelOptions.map((skillLevel) => (
-                    <option key={skillLevel} value={skillLevel}>
-                      {getSkillLevelLabel(skillLevel)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
+            <form className="booking-form" onSubmit={handleBookingSubmit}>
+              <div className="grid-two">
+                <label>
+                  Tên khách hàng
+                  <input
+                    value={form.customerName}
+                    onChange={(event) =>
+                      setForm({ ...form, customerName: event.target.value })
+                    }
+                    placeholder="Nguyễn Văn A"
+                    required
+                  />
+                </label>
+                <label>
+                  Số điện thoại
+                  <input
+                    value={form.customerPhone}
+                    onChange={(event) =>
+                      setForm({ ...form, customerPhone: event.target.value })
+                    }
+                    placeholder="0812345678"
+                  />
+                </label>
+              </div>
 
-            <div className="grid-two">
+              <div className="grid-two">
+                <label>
+                  Giới tính
+                  <select
+                    value={form.gender}
+                    onChange={(event) =>
+                      setForm({
+                        ...form,
+                        gender: event.target.value as CustomerGender,
+                      })
+                    }
+                  >
+                    {genderOptions.map((gender) => (
+                      <option key={gender} value={gender}>
+                        {getGenderLabel(gender)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Trình độ
+                  <select
+                    value={form.skillLevel}
+                    onChange={(event) =>
+                      setForm({
+                        ...form,
+                        skillLevel: event.target.value as SkillLevel,
+                      })
+                    }
+                  >
+                    {skillLevelOptions.map((skillLevel) => (
+                      <option key={skillLevel} value={skillLevel}>
+                        {getSkillLevelLabel(skillLevel)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div className="grid-two">
+                <label>
+                  Ngày đặt
+                  <input
+                    type="date"
+                    value={form.bookingDate}
+                    onChange={(event) =>
+                      setForm({ ...form, bookingDate: event.target.value })
+                    }
+                    required
+                  />
+                </label>
+                <label>
+                  Tiền cọc
+                  {renderCurrencyInput(
+                    form.depositAmount,
+                    (depositAmount) =>
+                      setForm({
+                        ...form,
+                        depositAmount,
+                      }),
+                    "Tiền cọc",
+                  )}
+                </label>
+              </div>
+
+              <div className="grid-two">
+                <label>
+                  Giờ bắt đầu
+                  <input
+                    type="time"
+                    value={form.startTime}
+                    onChange={(event) =>
+                      setForm({ ...form, startTime: event.target.value })
+                    }
+                    required
+                  />
+                </label>
+                <label>
+                  Giờ kết thúc
+                  <input
+                    type="time"
+                    value={form.endTime}
+                    onChange={(event) =>
+                      setForm({ ...form, endTime: event.target.value })
+                    }
+                    required
+                  />
+                </label>
+              </div>
+
+              <div className="time-slot-picker">
+                <div className="panel-subhead">
+                  <div>
+                    <p className="panel-tag">Khung giờ chơi</p>
+                    <h3>Chọn nhanh thời gian chơi</h3>
+                  </div>
+                </div>
+                <div className="time-slot-grid">
+                  {quickSlots.map((slot) => {
+                    const isActive =
+                      form.startTime === slot.startTime &&
+                      form.endTime === slot.endTime;
+
+                    return (
+                      <button
+                        key={`${slot.startTime}-${slot.endTime}`}
+                        type="button"
+                        className={
+                          isActive
+                            ? "time-slot-button active"
+                            : "time-slot-button"
+                        }
+                        onClick={() =>
+                          setForm({
+                            ...form,
+                            startTime: slot.startTime,
+                            endTime: slot.endTime,
+                          })
+                        }
+                      >
+                        <span className="time-slot-label">
+                          {formatQuickSlotLabel(slot.startTime, slot.endTime)}
+                        </span>
+                        <small className="time-slot-meta">
+                          {form.bookingDate}
+                        </small>
+                      </button>
+                    );
+                  })}
+                </div>
+                {quickSlots.length === 0 ? (
+                  <p className="empty-state">
+                    Chưa có khung giờ chơi cho ngày này. Hãy vào tab `Khung giờ
+                    nhanh` để tạo trước khi tiếp nhận khách.
+                  </p>
+                ) : null}
+              </div>
+
               <label>
-                Ngày đặt
+                Ghi chú
                 <input
-                  type="date"
-                  value={form.bookingDate}
+                  value={form.notes}
                   onChange={(event) =>
-                    setForm({ ...form, bookingDate: event.target.value })
+                    setForm({ ...form, notes: event.target.value })
                   }
-                  required
+                  placeholder="Thuê vợt, đến muộn, nhóm mới"
                 />
               </label>
-              <label>
-                Tiền cọc
-                {renderCurrencyInput(
-                  form.depositAmount,
-                  (depositAmount) =>
-                    setForm({
-                      ...form,
-                      depositAmount,
-                    }),
-                  "Tiền cọc",
-                )}
-              </label>
-            </div>
 
-            <div className="grid-two">
               <label>
-                Giờ bắt đầu
+                Ảnh khách hàng (tùy chọn)
                 <input
-                  type="time"
-                  value={form.startTime}
+                  type="file"
+                  accept="image/*"
                   onChange={(event) =>
-                    setForm({ ...form, startTime: event.target.value })
+                    void handlePhotoSelected(event.target.files?.[0] ?? null)
                   }
-                  required
                 />
               </label>
-              <label>
-                Giờ kết thúc
-                <input
-                  type="time"
-                  value={form.endTime}
-                  onChange={(event) =>
-                    setForm({ ...form, endTime: event.target.value })
-                  }
-                  required
-                />
-              </label>
-            </div>
 
-            <div className="time-slot-picker">
-              <div className="panel-subhead">
-                <div>
-                  <p className="panel-tag">Khung giờ nhanh</p>
-                  <h3>Chọn nhanh thời gian chơi</h3>
+              <div className="photo-upload-card">
+                <div className="avatar-frame avatar-frame-sm">
+                  {form.photoUrl ? (
+                    <img
+                      src={getDisplayPhotoUrl(form.photoUrl)}
+                      alt="Ảnh khách đang chọn"
+                      className="avatar-image"
+                    />
+                  ) : (
+                    <div className="avatar-placeholder avatar-placeholder-sm" />
+                  )}
+                </div>
+                <div className="photo-upload-copy">
+                  <strong>
+                    {isPhotoUploading
+                      ? "Đang tải ảnh lên..."
+                      : "Ảnh đại diện khách"}
+                  </strong>
+                  <small>
+                    {form.photoUrl
+                      ? "Ảnh đã sẵn sàng và sẽ được lưu cùng thông tin khách."
+                      : "Có thể bỏ qua nếu khách không cung cấp ảnh."}
+                  </small>
                 </div>
               </div>
-              <div className="time-slot-grid">
-                {quickTimeSlots.map((slot) => {
-                  const isActive =
-                    form.startTime === slot.startTime &&
-                    form.endTime === slot.endTime;
 
-                  return (
-                    <button
-                      key={`${slot.startTime}-${slot.endTime}`}
-                      type="button"
-                      className={
-                        isActive
-                          ? "time-slot-button active"
-                          : "time-slot-button"
-                      }
-                      onClick={() =>
-                        setForm({
-                          ...form,
-                          startTime: slot.startTime,
-                          endTime: slot.endTime,
-                        })
-                      }
-                    >
-                      <span className="time-slot-label">{slot.label}</span>
-                      <small className="time-slot-meta">{slot.note}</small>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <label>
-              Ghi chú
-              <input
-                value={form.notes}
-                onChange={(event) =>
-                  setForm({ ...form, notes: event.target.value })
-                }
-                placeholder="Thuê vợt, đến muộn, nhóm mới"
-              />
-            </label>
-
-            <label>
-              Ảnh khách hàng (tùy chọn)
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(event) =>
-                  void handlePhotoSelected(event.target.files?.[0] ?? null)
-                }
-              />
-            </label>
-
-            <div className="photo-upload-card">
-              <div className="avatar-frame avatar-frame-sm">
-                {form.photoUrl ? (
-                  <img
-                    src={getDisplayPhotoUrl(form.photoUrl)}
-                    alt="Ảnh khách đang chọn"
-                    className="avatar-image"
-                  />
-                ) : (
-                  <div className="avatar-placeholder avatar-placeholder-sm" />
-                )}
-              </div>
-              <div className="photo-upload-copy">
+              <div className="selected-court-card">
+                <span className="selected-court-label">Quy trình</span>
                 <strong>
-                  {isPhotoUploading
-                    ? "Đang tải ảnh lên..."
-                    : "Ảnh đại diện khách"}
+                  Tiền cọc được ghi nhận đã thanh toán khi thêm khách
                 </strong>
-                <small>
-                  {form.photoUrl
-                    ? "Ảnh đã sẵn sàng và sẽ được lưu cùng thông tin khách."
-                    : "Có thể bỏ qua nếu khách không cung cấp ảnh."}
-                </small>
+                <small>Phân sân sau trong mục Quản lý sân.</small>
               </div>
-            </div>
 
-            <div className="selected-court-card">
-              <span className="selected-court-label">Quy trình</span>
-              <strong>
-                Tiền cọc được ghi nhận đã thanh toán khi thêm khách
-              </strong>
-              <small>Phân sân sau trong mục Quản lý sân.</small>
-            </div>
-
-            <button
-              className="primary-button"
-              type="submit"
-              disabled={isSubmitting || isPhotoUploading}
-            >
-              {isSubmitting || isPhotoUploading
-                ? "Đang lưu..."
-                : "Thêm khách đặt sân"}
-            </button>
-          </form>
-        </section>
+              <button
+                className="primary-button"
+                type="submit"
+                disabled={isSubmitting || isPhotoUploading}
+              >
+                {isSubmitting || isPhotoUploading
+                  ? "Đang lưu..."
+                  : "Thêm khách đặt sân"}
+              </button>
+            </form>
+          </section>
         ) : null}
 
         {activeSectionTab === "management" ? (
-        <section className="panel">
-          <div className="panel-head">
-            <div>
-              <p className="panel-tag">Quản lý sân</p>
-              <h2>
-                {selectedCourt
-                  ? `${selectedCourt.name} - phân sân`
-                  : "Quản lý sân"}
-              </h2>
+          <section className="panel">
+            <div className="panel-head">
+              <div>
+                <p className="panel-tag">Quản lý sân</p>
+                <h2>
+                  {selectedCourt
+                    ? `${selectedCourt.name} - phân sân`
+                    : "Quản lý sân"}
+                </h2>
+              </div>
             </div>
-          </div>
 
-          <div className="court-tabs" role="tablist" aria-label="Danh sách sân">
-            {courts.map((court) => (
-              <button
-                key={court.id}
-                type="button"
-                className={
-                  court.id === selectedCourtId
-                    ? "court-tab active"
-                    : "court-tab"
-                }
-                onClick={() => setSelectedCourtId(court.id)}
-              >
-                <span>{court.name}</span>
-                <small>{court.zone}</small>
-              </button>
-            ))}
-          </div>
-
-          <div className="management-toolbar">
-            <label className="history-filter">
-              <span>Ngày xem</span>
-              <input
-                type="date"
-                value={historyDate}
-                onChange={(event) => setHistoryDate(event.target.value)}
-              />
-            </label>
-            <label className="history-filter">
-              <span>Tìm khách hàng</span>
-              <input
-                type="search"
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Nhập tên khách hàng"
-              />
-            </label>
-            <label className="history-filter">
-              <span>Thanh toán đủ</span>
-              <select
-                value={transferFilter}
-                onChange={(event) =>
-                  setTransferFilter(
-                    event.target.value as "all" | "paid" | "unpaid",
-                  )
-                }
-              >
-                <option value="all">Tất cả khách</option>
-                <option value="paid">Đã thanh toán đủ</option>
-                <option value="unpaid">Chưa thanh toán đủ</option>
-              </select>
-            </label>
-            <label className="history-filter">
-              <span>Tham gia</span>
-              <select
-                value={participationFilter}
-                onChange={(event) =>
-                  setParticipationFilter(
-                    event.target.value as "all" | "checked_in" | "no_show",
-                  )
-                }
-              >
-                <option value="all">Tất cả khách</option>
-                <option value="checked_in">Đã check-in</option>
-                <option value="no_show">Không đến</option>
-              </select>
-            </label>
-            <button
-              type="button"
-              className="success-button export-button"
-              onClick={exportHistoryToExcel}
+            <div
+              className="court-tabs"
+              role="tablist"
+              aria-label="Danh sách sân"
             >
-              Xuất Excel
-            </button>
-          </div>
+              {courts.map((court) => (
+                <button
+                  key={court.id}
+                  type="button"
+                  className={
+                    court.id === selectedCourtId
+                      ? "court-tab active"
+                      : "court-tab"
+                  }
+                  onClick={() => setSelectedCourtId(court.id)}
+                >
+                  <span>{court.name}</span>
+                  <small>{court.zone}</small>
+                </button>
+              ))}
+            </div>
 
-          <div className="assignment-queue">
+            <div className="management-toolbar">
+              <label className="history-filter">
+                <span>Ngày xem</span>
+                <input
+                  type="date"
+                  value={historyDate}
+                  onChange={(event) => setHistoryDate(event.target.value)}
+                />
+              </label>
+              <label className="history-filter">
+                <span>Tìm khách hàng</span>
+                <input
+                  type="search"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder="Nhập tên khách hàng"
+                />
+              </label>
+              <label className="history-filter">
+                <span>Thanh toán đủ</span>
+                <select
+                  value={transferFilter}
+                  onChange={(event) =>
+                    setTransferFilter(
+                      event.target.value as "all" | "paid" | "unpaid",
+                    )
+                  }
+                >
+                  <option value="all">Tất cả khách</option>
+                  <option value="paid">Đã thanh toán đủ</option>
+                  <option value="unpaid">Chưa thanh toán đủ</option>
+                </select>
+              </label>
+              <label className="history-filter">
+                <span>Tham gia</span>
+                <select
+                  value={participationFilter}
+                  onChange={(event) =>
+                    setParticipationFilter(
+                      event.target.value as "all" | "checked_in" | "no_show",
+                    )
+                  }
+                >
+                  <option value="all">Tất cả khách</option>
+                  <option value="checked_in">Đã check-in</option>
+                  <option value="no_show">Không đến</option>
+                </select>
+              </label>
+              <button
+                type="button"
+                className="success-button export-button"
+                onClick={exportHistoryToExcel}
+              >
+                Xuất Excel
+              </button>
+            </div>
+
+            <div className="assignment-queue">
+              <div className="panel-subhead history-subhead">
+                <p className="panel-tag">Danh sách chờ</p>
+                <div className="history-subhead-row">
+                  <h3>Khách hàng đang chờ phân sân</h3>
+                  <button
+                    type="button"
+                    className="ghost-button view-button"
+                    onClick={() => setIsQueueModalOpen(true)}
+                  >
+                    <span className="view-icon" aria-hidden="true">
+                      👁
+                    </span>
+                    <span>Xem</span>
+                  </button>
+                </div>
+              </div>
+              <div className="queue-list">
+                {unassignedBookings.length === 0 ? (
+                  <p className="empty-state">
+                    Không có khách nào chờ phân sân trong ngày này.
+                  </p>
+                ) : (
+                  unassignedBookings.map((booking) => (
+                    <article
+                      key={booking.id}
+                      className={`booking-card compact-card booking-card-clickable ${booking.gender === "FEMALE" ? "booking-card-female" : ""}`}
+                      onClick={() => setDetailBooking(booking)}
+                    >
+                      <div className="booking-card-top">
+                        <div>
+                          <h3>{booking.customerName}</h3>
+                          <p>
+                            {getGenderLabel(booking.gender)} -{" "}
+                            {getSkillLevelLabel(booking.skillLevel)}
+                          </p>
+                        </div>
+                        <span
+                          className={`status status-${booking.status.toLowerCase()}`}
+                        >
+                          {booking.status}
+                        </span>
+                      </div>
+                      <div className="booking-meta">
+                        {booking.customerPhone ? (
+                          <span>{booking.customerPhone}</span>
+                        ) : null}
+                        <span>
+                          Đã cọc ({formatCurrencyDisplay(booking.depositAmount)}
+                          )
+                        </span>
+                        <span>
+                          {booking.startTime} - {booking.endTime}
+                        </span>
+                      </div>
+                      {booking.notes ? (
+                        <div className="booking-note">
+                          <strong>Ghi chú:</strong> {booking.notes}
+                        </div>
+                      ) : null}
+                      <div
+                        className="booking-actions"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <button
+                          type="button"
+                          className="primary-button"
+                          disabled={!selectedCourtId}
+                          onClick={() => handleAssignCourt(booking.id)}
+                        >
+                          Phân vào {selectedCourt?.name ?? "sân"}
+                        </button>
+                        <button
+                          type="button"
+                          className="ghost-button"
+                          onClick={() => handleDeleteBooking(booking.id)}
+                        >
+                          Xóa đặt sân
+                        </button>
+                      </div>
+                    </article>
+                  ))
+                )}
+              </div>
+            </div>
+
             <div className="panel-subhead history-subhead">
-              <p className="panel-tag">Danh sách chờ</p>
+              <p className="panel-tag">Lịch sử đã phân</p>
               <div className="history-subhead-row">
-                <h3>Khách hàng đang chờ phân sân</h3>
+                <h3>
+                  {selectedCourt
+                    ? `${selectedCourt.name} - danh sách khách`
+                    : "Khách đã phân sân"}
+                </h3>
                 <button
                   type="button"
                   className="ghost-button view-button"
-                  onClick={() => setIsQueueModalOpen(true)}
+                  onClick={() => setIsHistoryModalOpen(true)}
                 >
                   <span className="view-icon" aria-hidden="true">
                     👁
@@ -1319,161 +1589,197 @@ export default function App() {
                 </button>
               </div>
             </div>
-            <div className="queue-list">
-              {unassignedBookings.length === 0 ? (
+
+            <div className="schedule-list">
+              {historyBookings.length === 0 ? (
                 <p className="empty-state">
-                  Không có khách nào chờ phân sân trong ngày này.
+                  Không có khách nào được phân vào sân này trong ngày này.
                 </p>
               ) : (
-                unassignedBookings.map((booking) => (
-                  <article
-                    key={booking.id}
-                    className={`booking-card compact-card booking-card-clickable ${booking.gender === "FEMALE" ? "booking-card-female" : ""}`}
-                    onClick={() => setDetailBooking(booking)}
-                  >
-                    <div className="booking-card-top">
-                      <div>
-                        <h3>{booking.customerName}</h3>
-                        <p>
-                          {getGenderLabel(booking.gender)} -{" "}
-                          {getSkillLevelLabel(booking.skillLevel)}
-                        </p>
-                      </div>
-                      <span
-                        className={`status status-${booking.status.toLowerCase()}`}
-                      >
-                        {booking.status}
-                      </span>
-                    </div>
-                    <div className="booking-meta">
-                      {booking.customerPhone ? (
-                        <span>{booking.customerPhone}</span>
-                      ) : null}
-                      <span>
-                        Đã cọc ({formatCurrencyDisplay(booking.depositAmount)})
-                      </span>
-                      <span>
-                        {booking.startTime} - {booking.endTime}
-                      </span>
-                    </div>
-                    {booking.notes ? (
-                      <div className="booking-note">
-                        <strong>Ghi chú:</strong> {booking.notes}
-                      </div>
-                    ) : null}
-                    <div
-                      className="booking-actions"
-                      onClick={(event) => event.stopPropagation()}
-                    >
-                      <button
-                        type="button"
-                        className="primary-button"
-                        disabled={!selectedCourtId}
-                        onClick={() => handleAssignCourt(booking.id)}
-                      >
-                        Phân vào {selectedCourt?.name ?? "sân"}
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={() => handleDeleteBooking(booking.id)}
-                      >
-                        Xóa đặt sân
-                      </button>
-                    </div>
-                  </article>
-                ))
+                historyBookings.map((booking) =>
+                  renderAssignedBookingCard(booking),
+                )
               )}
             </div>
-          </div>
-
-          <div className="panel-subhead history-subhead">
-            <p className="panel-tag">Lịch sử đã phân</p>
-            <div className="history-subhead-row">
-              <h3>
-                {selectedCourt
-                  ? `${selectedCourt.name} - danh sách khách`
-                  : "Khách đã phân sân"}
-              </h3>
-              <button
-                type="button"
-                className="ghost-button view-button"
-                onClick={() => setIsHistoryModalOpen(true)}
-              >
-                <span className="view-icon" aria-hidden="true">
-                  👁
-                </span>
-                <span>Xem</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="schedule-list">
-            {historyBookings.length === 0 ? (
-              <p className="empty-state">
-                Không có khách nào được phân vào sân này trong ngày này.
-              </p>
-            ) : (
-              historyBookings.map((booking) =>
-                renderAssignedBookingCard(booking),
-              )
-            )}
-          </div>
-        </section>
+          </section>
         ) : null}
       </main>
 
       {activeSectionTab === "inventory" ? (
-      <section className="court-inventory-section">
-        <section className="panel">
-          <div className="panel-head">
-            <div>
-              <p className="panel-tag">Danh sách sân</p>
-              <h2>Sân</h2>
+        <section className="court-inventory-section">
+          <section className="panel">
+            <div className="panel-head">
+              <div>
+                <p className="panel-tag">Danh sách sân</p>
+                <h2>Sân</h2>
+              </div>
+              <button
+                type="button"
+                className="primary-button"
+                onClick={openCreateCourtModal}
+              >
+                Thêm sân
+              </button>
             </div>
-            <button
-              type="button"
-              className="primary-button"
-              onClick={openCreateCourtModal}
-            >
-              Thêm sân
-            </button>
-          </div>
 
-          <div className="court-grid">
-            {courts.map((court) => (
-              <article key={court.id} className="court-card">
-                <h3>{court.name}</h3>
-                <p>{court.zone}</p>
-                <ul>
-                  <li>
-                    Giá: {formatCurrencyDisplay(court.hourlyRate)} THB/giờ
-                  </li>
-                  <li>
-                    Trạng thái: {court.isActive ? "Đang hoạt động" : "Tạm dừng"}
-                  </li>
-                </ul>
-                <div className="court-actions">
-                  <button
-                    type="button"
-                    className="ghost-button"
-                    onClick={() => openEditCourtModal(court)}
-                  >
-                    Sửa
-                  </button>
-                  <button
-                    type="button"
-                    className="warning-button"
-                    onClick={() => handleDeleteCourt(court.id)}
-                  >
-                    Xóa
-                  </button>
+            <div className="court-grid">
+              {courts.map((court) => (
+                <article key={court.id} className="court-card">
+                  <h3>{court.name}</h3>
+                  <p>{court.zone}</p>
+                  <ul>
+                    <li>
+                      Giá: {formatCurrencyDisplay(court.hourlyRate)} THB/giờ
+                    </li>
+                    <li>
+                      Trạng thái:{" "}
+                      {court.isActive ? "Đang hoạt động" : "Tạm dừng"}
+                    </li>
+                  </ul>
+                  <div className="court-actions">
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      onClick={() => openEditCourtModal(court)}
+                    >
+                      Sửa
+                    </button>
+                    <button
+                      type="button"
+                      className="warning-button"
+                      onClick={() => handleDeleteCourt(court.id)}
+                    >
+                      Xóa
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        </section>
+      ) : null}
+
+      {activeSectionTab === "quick_slots" ? (
+        <section className="court-inventory-section">
+          <section className="panel quick-slots-panel">
+            <div className="panel-head">
+              <div>
+                <p className="panel-tag">Khung giờ chơi</p>
+                <h2>Quản lý khung giờ chơi theo ngày</h2>
+              </div>
+            </div>
+
+            <div className="quick-slots-layout">
+              <article className="quick-slots-editor">
+                <div className="quick-slots-date-card">
+                  <label>
+                    Ngày áp dụng
+                    <input
+                      type="date"
+                      value={slotManagementDate}
+                      onChange={(event) =>
+                        setSlotManagementDate(event.target.value)
+                      }
+                      required
+                    />
+                  </label>
+                  <p className="quick-slots-helper">
+                    Chọn ngày, thêm khung giờ và khách ở site công khai sẽ nhìn
+                    thấy đúng các lựa chọn này trong ngày tương ứng.
+                  </p>
+                </div>
+
+                <div className="quick-slots-create-card">
+                  <div className="panel-subhead">
+                    <div>
+                      <p className="panel-tag">Tạo mới</p>
+                      <h3>Thêm khung giờ cho {slotManagementDate}</h3>
+                    </div>
+                  </div>
+
+                  <div className="grid-two">
+                    <label>
+                      Giờ bắt đầu
+                      <input
+                        type="time"
+                        value={quickSlotDraft.startTime}
+                        onChange={(event) =>
+                          setQuickSlotDraft({
+                            ...quickSlotDraft,
+                            startTime: event.target.value,
+                          })
+                        }
+                        required
+                      />
+                    </label>
+                    <label>
+                      Giờ kết thúc
+                      <input
+                        type="time"
+                        value={quickSlotDraft.endTime}
+                        onChange={(event) =>
+                          setQuickSlotDraft({
+                            ...quickSlotDraft,
+                            endTime: event.target.value,
+                          })
+                        }
+                        required
+                      />
+                    </label>
+                  </div>
+
+                  <div className="quick-slot-admin-actions">
+                    <button
+                      type="button"
+                      className="primary-button"
+                      onClick={() => void handleQuickSlotCreate()}
+                      disabled={isQuickSlotSubmitting}
+                    >
+                      {isQuickSlotSubmitting
+                        ? "Đang thêm khung giờ..."
+                        : "Thêm khung giờ chơi"}
+                    </button>
+                  </div>
                 </div>
               </article>
-            ))}
-          </div>
+
+              <article className="quick-slots-list-card">
+                <div className="panel-subhead">
+                  <div>
+                    <p className="panel-tag">Danh sách theo ngày</p>
+                    <h3>{slotManagementDate}</h3>
+                  </div>
+                </div>
+
+                <div className="quick-slot-admin-list">
+                  {slotManagementSlots.length === 0 ? (
+                    <p className="empty-state">
+                      Chưa có khung giờ nào cho ngày này.
+                    </p>
+                  ) : (
+                    slotManagementSlots.map((slot) => (
+                      <div key={slot.id} className="quick-slot-admin-item">
+                        <div>
+                          <strong>
+                            {formatQuickSlotLabel(slot.startTime, slot.endTime)}
+                          </strong>
+                          <small>{slot.bookingDate}</small>
+                        </div>
+                        <button
+                          type="button"
+                          className="ghost-button"
+                          onClick={() => void handleQuickSlotDelete(slot.id)}
+                        >
+                          Xóa
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </article>
+            </div>
+          </section>
         </section>
-      </section>
       ) : null}
 
       {isCourtModalOpen ? (
@@ -1699,7 +2005,7 @@ export default function App() {
             />
           </div>
         </div>
-        ) : null}
+      ) : null}
 
       {isQueueModalOpen ? (
         <div
@@ -1819,22 +2125,22 @@ export default function App() {
             aria-labelledby="history-modal-title"
             onClick={(event) => event.stopPropagation()}
           >
-              <div className="panel-head modal-head-sticky">
-                <div>
-                  <h2 id="history-modal-title">
-                    {`Theo dõi sân - ${selectedCourt?.name ?? "Sân chưa chọn"} - ${historyDate}`}
-                  </h2>
-                </div>
-                <button
-                  type="button"
-                  className="ghost-button"
+            <div className="panel-head modal-head-sticky">
+              <div>
+                <h2 id="history-modal-title">
+                  {`Theo dõi sân - ${selectedCourt?.name ?? "Sân chưa chọn"} - ${historyDate}`}
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="ghost-button"
                 onClick={() => setIsHistoryModalOpen(false)}
               >
                 Đóng
               </button>
             </div>
 
-              <div className="fullscreen-history-list">
+            <div className="fullscreen-history-list">
               {historyBookings.length === 0 ? (
                 <p className="empty-state">
                   Không có khách nào được phân vào sân này trong ngày này.

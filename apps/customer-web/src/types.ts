@@ -8,6 +8,13 @@ export type BookingStatus =
   | "NO_SHOW"
   | "CANCELLED";
 
+export type QuickSlot = {
+  id: number;
+  bookingDate: string;
+  startTime: string;
+  endTime: string;
+};
+
 export type PublicBookingPayload = {
   customerName: string;
   customerPhone?: string;

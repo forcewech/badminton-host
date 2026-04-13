@@ -7,6 +7,8 @@ import type {
   DashboardOverview,
   EquipmentItem,
   LoginPayload,
+  QuickSlot,
+  QuickSlotPayload,
 } from './types';
 
 function getDefaultApiUrl() {
@@ -53,6 +55,17 @@ export const api = {
     }),
   getOverview: () => request<DashboardOverview>('/dashboard/overview'),
   getCourts: () => request<Court[]>('/courts'),
+  getQuickSlots: (date: string) =>
+    request<QuickSlot[]>(`/quick-slots?date=${encodeURIComponent(date)}`),
+  createQuickSlot: (payload: QuickSlotPayload) =>
+    request<QuickSlot>('/quick-slots', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  deleteQuickSlot: (id: number) =>
+    request<{ id: number; deleted: boolean }>(`/quick-slots/${id}`, {
+      method: 'DELETE',
+    }),
   createCourt: (payload: CourtPayload) =>
     request<Court>('/courts', {
       method: 'POST',

@@ -6,6 +6,7 @@ import type {
   PublicBookingPayload,
   PublicBookingResponse,
   PublicPaymentStatus,
+  QuickSlot,
   SkillLevel,
 } from "./types";
 
@@ -21,12 +22,6 @@ const skillOptions: Array<{ value: SkillLevel; label: string }> = [
   { value: "ADVANCED", label: "Nâng cao" },
 ];
 
-const quickSlots = [
-  { label: "7:00 PM - 9:00 PM", startTime: "19:00", endTime: "21:00" },
-  { label: "8:00 PM - 10:00 PM", startTime: "20:00", endTime: "22:00" },
-  { label: "9:00 PM - 11:00 PM", startTime: "21:00", endTime: "23:00" },
-];
-
 function getLocalDateInputValue() {
   const now = new Date();
   const timezoneOffset = now.getTimezoneOffset() * 60 * 1000;
@@ -35,6 +30,22 @@ function getLocalDateInputValue() {
 
 function formatCurrency(amount: number) {
   return amount.toLocaleString("en-US");
+}
+
+function formatQuickSlotLabel(startTime: string, endTime: string) {
+  const formatTime = (time: string) => {
+    const [hours, minutes] = time.split(":").map(Number);
+    const date = new Date();
+    date.setHours(hours, minutes, 0, 0);
+
+    return new Intl.DateTimeFormat("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }).format(date);
+  };
+
+  return `${formatTime(startTime)} - ${formatTime(endTime)}`;
 }
 
 function getDisplayPhotoUrl(photoUrl?: string | null) {
@@ -68,6 +79,7 @@ const initialForm: PublicBookingPayload = {
 
 export default function App() {
   const [form, setForm] = useState<PublicBookingPayload>(initialForm);
+  const [quickSlots, setQuickSlots] = useState<QuickSlot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState(
     `${initialForm.startTime}-${initialForm.endTime}`,
   );
@@ -80,6 +92,7 @@ export default function App() {
     useState<PublicPaymentStatus | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [isLoadingQuickSlots, setIsLoadingQuickSlots] = useState(false);
   const [fullscreenPhotoUrl, setFullscreenPhotoUrl] = useState<string | null>(
     null,
   );
@@ -94,7 +107,7 @@ export default function App() {
       return;
     }
 
-    const interval = window.setInterval(async () => {
+    const syncPaymentStatus = async () => {
       try {
         const nextStatus = await api.getPaymentStatus(paymentReference);
         setPaymentStatus(nextStatus);
@@ -105,10 +118,87 @@ export default function App() {
       } catch {
         // Continue polling silently.
       }
-    }, 5000);
+    };
+
+    void syncPaymentStatus();
+
+    const interval = window.setInterval(() => {
+      void syncPaymentStatus();
+    }, 1000);
 
     return () => window.clearInterval(interval);
   }, [paymentReference, paymentStatus?.depositPaid]);
+
+  useEffect(() => {
+    if (submission) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadQuickSlots = async () => {
+      setIsLoadingQuickSlots(true);
+
+      try {
+        const nextQuickSlots = await api.getQuickSlots(form.bookingDate);
+        if (cancelled) {
+          return;
+        }
+
+        setQuickSlots(nextQuickSlots);
+
+        if (nextQuickSlots.length === 0) {
+          setSelectedSlot("");
+          return;
+        }
+
+        const activeSlot = nextQuickSlots.find(
+          (slot) =>
+            slot.startTime === form.startTime && slot.endTime === form.endTime,
+        );
+
+        if (activeSlot) {
+          setSelectedSlot(`${activeSlot.startTime}-${activeSlot.endTime}`);
+          return;
+        }
+
+        setSelectedSlot(
+          `${nextQuickSlots[0].startTime}-${nextQuickSlots[0].endTime}`,
+        );
+        setForm((current) => ({
+          ...current,
+          startTime: nextQuickSlots[0].startTime,
+          endTime: nextQuickSlots[0].endTime,
+        }));
+      } catch {
+        if (!cancelled) {
+          setQuickSlots([]);
+          setSelectedSlot("");
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingQuickSlots(false);
+        }
+      }
+    };
+
+    void loadQuickSlots();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [form.bookingDate, submission]);
+
+  useEffect(() => {
+    const activeSlot = quickSlots.find(
+      (slot) =>
+        slot.startTime === form.startTime && slot.endTime === form.endTime,
+    );
+
+    setSelectedSlot(
+      activeSlot ? `${activeSlot.startTime}-${activeSlot.endTime}` : "",
+    );
+  }, [form.endTime, form.startTime, quickSlots]);
 
   const currentPayment = paymentStatus?.payment ?? submission?.payment ?? null;
   const isPaid =
@@ -171,6 +261,12 @@ export default function App() {
     setIsSubmitting(true);
 
     try {
+      if (quickSlots.length === 0) {
+        throw new Error(
+          "Chưa có khung giờ chơi nào được thiết lập cho ngày hôm nay",
+        );
+      }
+
       let photoUrl = form.photoUrl;
       let photoPublicId = form.photoPublicId;
 
@@ -325,7 +421,7 @@ export default function App() {
 
                 <div className="quick-slot-card">
                   <div className="panel-copy compact">
-                    <p className="panel-tag">Khung giờ nhanh</p>
+                    <p className="panel-tag">Khung giờ chơi</p>
                     <h3>Chạm một lần để chọn nhanh</h3>
                   </div>
 
@@ -348,39 +444,22 @@ export default function App() {
                             handleFormChange("endTime", slot.endTime);
                           }}
                         >
-                          {slot.label}
+                          {formatQuickSlotLabel(slot.startTime, slot.endTime)}
                         </button>
                       );
                     })}
                   </div>
 
-                  <div className="form-grid">
-                    <label>
-                      Giờ bắt đầu
-                      <input
-                        type="time"
-                        value={form.startTime}
-                        onChange={(event) => {
-                          setSelectedSlot("");
-                          handleFormChange("startTime", event.target.value);
-                        }}
-                        required
-                      />
-                    </label>
-
-                    <label>
-                      Giờ kết thúc
-                      <input
-                        type="time"
-                        value={form.endTime}
-                        onChange={(event) => {
-                          setSelectedSlot("");
-                          handleFormChange("endTime", event.target.value);
-                        }}
-                        required
-                      />
-                    </label>
-                  </div>
+                  {isLoadingQuickSlots ? (
+                    <p className="slot-empty-state">
+                      Đang tải khung giờ chơi cho ngày đã chọn...
+                    </p>
+                  ) : null}
+                  {!isLoadingQuickSlots && quickSlots.length === 0 ? (
+                    <p className="slot-empty-state">
+                      Chưa có khung giờ chơi nào được thiết lập cho ngày hôm nay
+                    </p>
+                  ) : null}
                 </div>
 
                 <label>
@@ -428,7 +507,7 @@ export default function App() {
                 <button
                   type="submit"
                   className="submit-button"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || quickSlots.length === 0}
                 >
                   {isSubmitting
                     ? isUploadingPhoto

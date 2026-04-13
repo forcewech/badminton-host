@@ -1,17 +1,4 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: badminton-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-badminton_court}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-
   api:
     build:
       context: ./apps/api
@@ -21,11 +8,12 @@ services:
       - ./apps/api/.env
     environment:
       PORT: ${PORT:-3000}
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-badminton_court}
+      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_SSL: ${DATABASE_SSL:-true}
+      DATABASE_SSL_REJECT_UNAUTHORIZED: ${DATABASE_SSL_REJECT_UNAUTHORIZED:-false}
+      TYPEORM_SYNCHRONIZE: ${TYPEORM_SYNCHRONIZE:-true}
       FRONTEND_URL: ${ADMIN_WEB_URL:-http://160.25.81.212:5173/}
       CUSTOMER_FRONTEND_URL: ${CUSTOMER_WEB_URL:-http://160.25.81.212:5174/}
-    depends_on:
-      - postgres
     ports:
       - "${PORT:-3000}:3000"
 
@@ -52,6 +40,3 @@ services:
       - api
     ports:
       - "${CUSTOMER_FRONTEND_PORT:-5174}:80"
-
-volumes:
-  postgres-data:

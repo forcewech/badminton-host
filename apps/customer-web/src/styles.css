@@ -107,6 +107,12 @@ button {
   gap: 1rem;
 }
 
+.slot-empty-state {
+  margin: 0;
+  color: #68808a;
+  font-size: 0.92rem;
+}
+
 .quick-slot-card .form-grid {
   margin-top: 0.2rem;
 }
