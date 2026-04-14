@@ -85,7 +85,7 @@ const initialForm: CreateBookingPayload = {
   bookingDate: today,
   startTime: "18:00",
   endTime: "19:00",
-  depositAmount: 30000,
+  depositAmount: 65000,
   notes: "",
   photoUrl: "",
   photoPublicId: "",

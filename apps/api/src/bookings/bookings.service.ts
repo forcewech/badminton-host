@@ -353,12 +353,12 @@ export class BookingsService {
 
   private getDefaultDepositAmount() {
     const configuredAmount = Number(
-      this.configService.get<string>("CUSTOMER_DEPOSIT_AMOUNT", "30000"),
+      this.configService.get<string>("CUSTOMER_DEPOSIT_AMOUNT", "65000"),
     );
 
     return Number.isFinite(configuredAmount) && configuredAmount >= 0
       ? configuredAmount
-      : 30000;
+      : 65000;
   }
 
   private getDepositExpirySeconds() {
