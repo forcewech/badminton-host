@@ -32,6 +32,13 @@ function formatCurrency(amount: number) {
   return amount.toLocaleString("en-US");
 }
 
+function formatCountdown(totalSeconds: number) {
+  const safeSeconds = Math.max(totalSeconds, 0);
+  const minutes = Math.floor(safeSeconds / 60);
+  const seconds = safeSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
 function formatQuickSlotLabel(startTime: string, endTime: string) {
   const formatTime = (time: string) => {
     const [hours, minutes] = time.split(":").map(Number);
@@ -90,6 +97,7 @@ export default function App() {
   );
   const [paymentStatus, setPaymentStatus] =
     useState<PublicPaymentStatus | null>(null);
+  const [remainingSeconds, setRemainingSeconds] = useState(120);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [isLoadingQuickSlots, setIsLoadingQuickSlots] = useState(false);
@@ -101,9 +109,27 @@ export default function App() {
     useState(false);
 
   const paymentReference = submission?.booking.depositReference ?? null;
+  const currentPayment = paymentStatus?.payment ?? submission?.payment ?? null;
+  const isPaid =
+    paymentStatus?.depositPaid ?? submission?.booking.depositPaid ?? false;
+  const paymentExpiresAt =
+    paymentStatus?.depositExpiresAt ?? currentPayment?.expiresAt ?? null;
+  const isExpired =
+    !isPaid &&
+    Boolean(
+      paymentStatus?.isExpired ||
+        paymentStatus?.status === "CANCELLED" ||
+        (paymentExpiresAt &&
+          new Date(paymentExpiresAt).getTime() <= Date.now()),
+    );
 
   useEffect(() => {
-    if (!paymentReference || paymentStatus?.depositPaid) {
+    if (
+      !paymentReference ||
+      paymentStatus?.depositPaid ||
+      paymentStatus?.isExpired ||
+      paymentStatus?.status === "CANCELLED"
+    ) {
       return;
     }
 
@@ -127,7 +153,12 @@ export default function App() {
     }, 1000);
 
     return () => window.clearInterval(interval);
-  }, [paymentReference, paymentStatus?.depositPaid]);
+  }, [
+    paymentReference,
+    paymentStatus?.depositPaid,
+    paymentStatus?.isExpired,
+    paymentStatus?.status,
+  ]);
 
   useEffect(() => {
     if (submission) {
@@ -162,13 +193,12 @@ export default function App() {
           return;
         }
 
-        setSelectedSlot(
-          `${nextQuickSlots[0].startTime}-${nextQuickSlots[0].endTime}`,
-        );
+        const firstSlot = nextQuickSlots[0];
+        setSelectedSlot(`${firstSlot.startTime}-${firstSlot.endTime}`);
         setForm((current) => ({
           ...current,
-          startTime: nextQuickSlots[0].startTime,
-          endTime: nextQuickSlots[0].endTime,
+          startTime: firstSlot.startTime,
+          endTime: firstSlot.endTime,
         }));
       } catch {
         if (!cancelled) {
@@ -198,11 +228,7 @@ export default function App() {
     setSelectedSlot(
       activeSlot ? `${activeSlot.startTime}-${activeSlot.endTime}` : "",
     );
-  }, [form.endTime, form.startTime, quickSlots]);
-
-  const currentPayment = paymentStatus?.payment ?? submission?.payment ?? null;
-  const isPaid =
-    paymentStatus?.depositPaid ?? submission?.booking.depositPaid ?? false;
+  }, [form.startTime, form.endTime, quickSlots]);
 
   useEffect(() => {
     if (!isPaid || hasHandledSuccessfulPayment) {
@@ -213,6 +239,26 @@ export default function App() {
     setIsSuccessModalOpen(true);
     toast.success("Đã xác nhận tiền cọc. Hẹn bạn trên sân.");
   }, [hasHandledSuccessfulPayment, isPaid]);
+
+  useEffect(() => {
+    if (!paymentExpiresAt || isPaid) {
+      setRemainingSeconds(120);
+      return;
+    }
+
+    const syncRemainingTime = () => {
+      const expiresAt = new Date(paymentExpiresAt).getTime();
+      const seconds = Math.max(
+        0,
+        Math.ceil((expiresAt - Date.now()) / 1000),
+      );
+      setRemainingSeconds(seconds);
+    };
+
+    syncRemainingTime();
+    const interval = window.setInterval(syncRemainingTime, 1000);
+    return () => window.clearInterval(interval);
+  }, [isPaid, paymentExpiresAt]);
 
   const bookingSummary = useMemo(() => {
     if (!submission) {
@@ -288,6 +334,8 @@ export default function App() {
         reference: result.booking.depositReference ?? null,
         depositAmount: result.payment.amount,
         depositPaid: result.booking.depositPaid,
+        depositExpiresAt: result.payment.expiresAt ?? null,
+        isExpired: false,
         status: result.booking.status,
         customerName: result.booking.customerName,
         bookingDate: result.booking.bookingDate,
@@ -320,6 +368,7 @@ export default function App() {
     setPhotoPreview("");
     setSubmission(null);
     setPaymentStatus(null);
+    setRemainingSeconds(120);
     setHasHandledSuccessfulPayment(false);
     setIsSuccessModalOpen(false);
   }
@@ -535,29 +584,54 @@ export default function App() {
                       isPaid ? "payment-pill success" : "payment-pill pending"
                     }
                   >
-                    {isPaid ? "Đã nhận tiền cọc" : "Đang chờ xác nhận tiền cọc"}
+                    {isPaid
+                      ? "Đã nhận tiền cọc"
+                      : isExpired
+                        ? "Mã QR đã hết hạn"
+                        : "Đang chờ xác nhận tiền cọc"}
                   </span>
-                  {!isPaid ? (
-                    <div className="payment-loading-row">
-                      <span className="payment-spinner" aria-hidden="true" />
+
+                  {!isPaid && !isExpired ? (
+                    <>
+                      <div className="payment-loading-row">
+                        <span className="payment-spinner" aria-hidden="true" />
+                        <small>Hệ thống đang chờ xác nhận giao dịch cọc.</small>
+                      </div>
+                      <div className="payment-countdown-row">
+                        <small>
+                          Mã QR sẽ tự hết hạn sau{" "}
+                          {formatCountdown(remainingSeconds)}
+                        </small>
+                      </div>
+                    </>
+                  ) : null}
+
+                  {!isPaid && isExpired ? (
+                    <div className="payment-loading-row payment-loading-row-expired">
                       <small>
-                        Vui lòng chờ khoảng 30s để hệ thống xác nhận giao
-                        dịch...
+                        Mã QR đã hết hạn sau 2 phút. Vui lòng tạo lượt đăng ký
+                        mới.
                       </small>
                     </div>
                   ) : null}
+
                   {currentPayment?.qrImageUrl ? (
                     <button
                       type="button"
-                      className="qr-button"
-                      onClick={() =>
-                        setFullscreenPhotoUrl(currentPayment.qrImageUrl)
+                      className={
+                        isExpired ? "qr-button qr-button-expired" : "qr-button"
                       }
+                      onClick={() =>
+                        !isExpired
+                          ? setFullscreenPhotoUrl(currentPayment.qrImageUrl)
+                          : undefined
+                      }
+                      disabled={isExpired}
                     >
-                      <img
-                        src={currentPayment.qrImageUrl}
-                        alt="Mã QR ngân hàng"
-                      />
+                      {isExpired ? (
+                        <span className="qr-expired-overlay">Hết hạn</span>
+                      ) : null}
+                      <img src={currentPayment.qrImageUrl} alt="Mã QR ngân hàng" />
                     </button>
                   ) : (
                     <div className="qr-fallback">
@@ -579,8 +653,8 @@ export default function App() {
                     <h3>Thông tin đặt sân</h3>
                     <p>{bookingSummary?.customerName}</p>
                     <small>
-                      {bookingSummary?.bookingDate} ·{" "}
-                      {bookingSummary?.startTime} đến {bookingSummary?.endTime}
+                      {bookingSummary?.bookingDate} · {bookingSummary?.startTime}{" "}
+                      đến {bookingSummary?.endTime}
                     </small>
                   </div>
 
@@ -613,6 +687,7 @@ export default function App() {
                     <button
                       type="button"
                       className="secondary-button"
+                      disabled={isExpired}
                       onClick={async () => {
                         await navigator.clipboard.writeText(
                           currentPayment?.transferContent ?? "",
@@ -671,7 +746,7 @@ export default function App() {
             <div className="success-modal-icon" aria-hidden="true">
               ✓
             </div>
-            <p className="panel-tag">Đặc cọc thành công</p>
+            <p className="panel-tag">Đặt cọc thành công</p>
             <h2>Chúc mừng, hệ thống đã nhận tiền cọc của bạn.</h2>
             <p>
               {bookingSummary?.customerName} đã được ghi nhận lịch chơi vào{" "}

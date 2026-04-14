@@ -258,6 +258,14 @@ button {
   color: #153541;
 }
 
+.submit-button:disabled,
+.secondary-button:disabled,
+.ghost-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
 .payment-pill {
   display: inline-flex;
   align-items: center;
@@ -278,8 +286,24 @@ button {
   color: #68808a;
 }
 
+.payment-countdown-row {
+  margin: -0.55rem 0 1rem;
+  color: #805300;
+  font-weight: 600;
+}
+
 .payment-loading-row small {
   margin: 0;
+}
+
+.payment-countdown-row small,
+.payment-loading-row-expired small {
+  margin: 0;
+}
+
+.payment-loading-row-expired {
+  margin: -0.55rem 0 1rem;
+  color: #9a3f1c;
 }
 
 .payment-spinner {
@@ -302,6 +326,7 @@ button {
 }
 
 .qr-button {
+  position: relative;
   padding: 0;
   border: none;
   background: transparent;
@@ -312,6 +337,24 @@ button {
   border-radius: 24px;
   background: #ffffff;
   border: 1px solid #dde7eb;
+}
+
+.qr-button-expired img {
+  filter: blur(8px) grayscale(1);
+  opacity: 0.34;
+}
+
+.qr-expired-overlay {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  padding: 0.6rem 1rem;
+  border-radius: 999px;
+  background: rgba(16, 47, 56, 0.86);
+  color: #ffffff;
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
 .payment-highlight {

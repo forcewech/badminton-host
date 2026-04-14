@@ -60,6 +60,9 @@ export class Booking {
   @Column({ type: 'varchar', length: 64, nullable: true })
   depositPaidAt?: string | null;
 
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  depositExpiresAt?: string | null;
+
   @Column({ type: 'text', nullable: true })
   depositTransferNote?: string | null;
 

@@ -49,6 +49,7 @@ export type PublicBookingResponse = {
     transferContent: string;
     qrImageUrl: string | null;
     isConfigured: boolean;
+    expiresAt?: string | null;
   };
 };
 
@@ -57,6 +58,8 @@ export type PublicPaymentStatus = {
   depositAmount: number;
   depositPaid: boolean;
   depositPaidAt?: string | null;
+  depositExpiresAt?: string | null;
+  isExpired?: boolean;
   status: BookingStatus;
   customerName: string;
   bookingDate: string;

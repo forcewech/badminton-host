@@ -82,6 +82,7 @@ export class BookingsService {
       endTime: createPublicBookingDto.endTime,
       depositAmount: this.getDefaultDepositAmount(),
       depositPaid: false,
+      depositExpiresAt: this.getDepositExpiryIso(),
       notes: createPublicBookingDto.notes ?? "",
       photoUrl: createPublicBookingDto.photoUrl ?? null,
       photoPublicId: createPublicBookingDto.photoPublicId ?? null,
@@ -123,11 +124,15 @@ export class BookingsService {
 
   async getPublicPaymentStatus(reference: string) {
     const booking = await this.findByDepositReference(reference);
+    await this.expirePendingBookingIfNeeded(booking);
+
     return {
       reference: booking.depositReference,
       depositAmount: Number(booking.depositAmount),
       depositPaid: booking.depositPaid,
       depositPaidAt: booking.depositPaidAt ?? null,
+      depositExpiresAt: booking.depositExpiresAt ?? null,
+      isExpired: this.isBookingExpired(booking),
       status: booking.status,
       customerName: booking.customerName,
       bookingDate: booking.bookingDate,
@@ -170,6 +175,19 @@ export class BookingsService {
         received: true,
         matched: false,
         reason: `No booking found for reference ${transaction.reference}.`,
+      };
+    }
+
+    await this.expirePendingBookingIfNeeded(booking);
+
+    if (this.isBookingExpired(booking)) {
+      this.logger.warn(
+        `Payment callback ignored because booking ${booking.id} with reference ${transaction.reference} has expired.`,
+      );
+      return {
+        received: true,
+        matched: false,
+        reason: "Booking has expired and is no longer valid.",
       };
     }
 
@@ -343,6 +361,22 @@ export class BookingsService {
       : 30000;
   }
 
+  private getDepositExpirySeconds() {
+    const configuredSeconds = Number(
+      this.configService.get<string>("PAYMENT_EXPIRY_SECONDS", "120"),
+    );
+
+    return Number.isFinite(configuredSeconds) && configuredSeconds > 0
+      ? configuredSeconds
+      : 120;
+  }
+
+  private getDepositExpiryIso() {
+    return new Date(
+      Date.now() + this.getDepositExpirySeconds() * 1000,
+    ).toISOString();
+  }
+
   private getDepositReferencePrefix() {
     return this.configService
       .get<string>("DEPOSIT_REFERENCE_PREFIX", "BDC")
@@ -385,7 +419,28 @@ export class BookingsService {
       transferContent,
       qrImageUrl,
       isConfigured: Boolean(accountNumber && accountName),
+      expiresAt: booking.depositExpiresAt ?? null,
     };
+  }
+
+  private isBookingExpired(booking: Booking) {
+    if (booking.depositPaid || !booking.depositExpiresAt) {
+      return false;
+    }
+
+    return new Date(booking.depositExpiresAt).getTime() <= Date.now();
+  }
+
+  private async expirePendingBookingIfNeeded(booking: Booking) {
+    if (
+      !this.isBookingExpired(booking) ||
+      booking.status !== BookingStatus.PENDING
+    ) {
+      return booking;
+    }
+
+    booking.status = BookingStatus.CANCELLED;
+    return this.bookingsRepository.save(booking);
   }
 
   private verifyWebhookSecret(
