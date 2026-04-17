@@ -16,6 +16,7 @@ import { CreatePublicBookingDto } from "./dto/create-public-booking.dto";
 import { Booking } from "./entities/booking.entity";
 import { UpdateMatchTrackingDto } from "./dto/update-match-tracking.dto";
 import { CloudinaryService } from "./cloudinary.service";
+import { SettingsService } from "../settings/settings.service";
 
 @Injectable()
 export class BookingsService {
@@ -27,6 +28,7 @@ export class BookingsService {
     private readonly courtsService: CourtsService,
     private readonly cloudinaryService: CloudinaryService,
     private readonly configService: ConfigService,
+    private readonly settingsService: SettingsService,
   ) {}
 
   findAll() {
@@ -80,7 +82,7 @@ export class BookingsService {
       bookingDate: createPublicBookingDto.bookingDate,
       startTime: createPublicBookingDto.startTime,
       endTime: createPublicBookingDto.endTime,
-      depositAmount: this.getDefaultDepositAmount(),
+      depositAmount: await this.getDefaultDepositAmount(),
       depositPaid: false,
       depositExpiresAt: this.getDepositExpiryIso(),
       notes: createPublicBookingDto.notes ?? "",
@@ -351,14 +353,8 @@ export class BookingsService {
     return this.bookingsRepository.save(booking);
   }
 
-  private getDefaultDepositAmount() {
-    const configuredAmount = Number(
-      this.configService.get<string>("CUSTOMER_DEPOSIT_AMOUNT", "30000"),
-    );
-
-    return Number.isFinite(configuredAmount) && configuredAmount >= 0
-      ? configuredAmount
-      : 30000;
+  private async getDefaultDepositAmount() {
+    return this.settingsService.getPublicBookingDepositAmount();
   }
 
   private getDepositExpirySeconds() {

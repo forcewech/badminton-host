@@ -6,9 +6,10 @@ import { Booking } from './entities/booking.entity';
 import { BookingsController } from './bookings.controller';
 import { BookingsService } from './bookings.service';
 import { PaymentController } from './payment.controller';
+import { SettingsModule } from '../settings/settings.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Booking]), CourtsModule],
+  imports: [TypeOrmModule.forFeature([Booking]), CourtsModule, SettingsModule],
   controllers: [BookingsController, PaymentController],
   providers: [BookingsService, CloudinaryService],
   exports: [BookingsService],

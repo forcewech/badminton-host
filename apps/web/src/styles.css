@@ -272,7 +272,7 @@ select {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 0.25rem;
+  gap: 0.4rem;
   padding: 0.85rem 0.95rem;
   border-radius: 14px;
   border: 1px solid #c8d7de;
@@ -304,9 +304,11 @@ select {
 
 .currency-input {
   position: relative;
+  width: 100%;
 }
 
 .currency-input input {
+  width: 100%;
   padding-right: 4.5rem;
 }
 
@@ -318,6 +320,65 @@ select {
   color: #90a2aa;
   font-weight: 600;
   pointer-events: none;
+}
+
+.qr-settings-grid {
+  align-items: stretch;
+  margin-bottom: 1rem;
+}
+
+.qr-settings-card {
+  gap: 0.5rem;
+  justify-content: flex-start;
+}
+
+.qr-settings-label,
+.qr-settings-input-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #183745;
+}
+
+.qr-settings-input-label {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.qr-settings-value {
+  font-size: 1.05rem;
+  line-height: 1.35;
+  color: #143847;
+}
+
+.qr-settings-description {
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: #4f6670;
+}
+
+.qr-settings-card .currency-input {
+  margin-bottom: 0.35rem;
+}
+
+.qr-settings-card .currency-input input {
+  width: 100%;
+  padding: 0.85rem 0.95rem;
+  padding-right: 4.5rem;
+  border-radius: 14px;
+  border: 1px solid #c8d7de;
+  background: #f8fbfc;
+}
+
+.qr-settings-card .currency-input input:focus {
+  outline: none;
+  border-color: #1d766e;
+  box-shadow: 0 0 0 3px rgba(29, 118, 110, 0.12);
+}
+
+.qr-settings-actions {
+  margin-top: 0;
 }
 
 .app-toast {

@@ -10,6 +10,7 @@ import type {
   CreateBookingPayload,
   CustomerGender,
   DashboardOverview,
+  PublicBookingSettings,
   QuickSlot,
   SkillLevel,
 } from "./types";
@@ -85,7 +86,7 @@ const initialForm: CreateBookingPayload = {
   bookingDate: today,
   startTime: "18:00",
   endTime: "19:00",
-  depositAmount: 30000,
+  depositAmount: 65000,
   notes: "",
   photoUrl: "",
   photoPublicId: "",
@@ -235,6 +236,10 @@ function showAppToast(kind: ToastKind, title: string, message: string) {
 }
 
 export default function App() {
+  const [publicBookingSettings, setPublicBookingSettings] =
+    useState<PublicBookingSettings>({
+      depositAmount: 65000,
+    });
   const [activeSectionTab, setActiveSectionTab] =
     useState<(typeof mainSectionTabs)[number]["id"]>("management");
   const [authSession, setAuthSession] = useState<AuthSession | null>(() => {
@@ -298,6 +303,8 @@ export default function App() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCourtSubmitting, setIsCourtSubmitting] = useState(false);
   const [isQuickSlotSubmitting, setIsQuickSlotSubmitting] = useState(false);
+  const [isPublicBookingSettingsSubmitting, setIsPublicBookingSettingsSubmitting] =
+    useState(false);
   const [isPhotoUploading, setIsPhotoUploading] = useState(false);
 
   useEffect(() => {
@@ -421,15 +428,26 @@ export default function App() {
 
   async function loadData() {
     try {
-      const [overviewData, courtsData, bookingsData] = await Promise.all([
+      const [
+        overviewData,
+        courtsData,
+        bookingsData,
+        nextPublicBookingSettings,
+      ] = await Promise.all([
         api.getOverview(),
         api.getCourts(),
         api.getBookings(),
+        api.getPublicBookingSettings(),
       ]);
 
       setOverview(overviewData);
       setCourts(courtsData);
       setBookings(bookingsData);
+      setPublicBookingSettings(nextPublicBookingSettings);
+      setForm((currentForm) => ({
+        ...currentForm,
+        depositAmount: nextPublicBookingSettings.depositAmount,
+      }));
 
       if (courtsData.length > 0) {
         const fallbackCourtId = courtsData.some(
@@ -630,6 +648,34 @@ export default function App() {
           ? actionError.message
           : "KhÃ´ng thá»ƒ xÃ³a khung giá» nhanh",
       );
+    }
+  }
+
+  async function handlePublicBookingSettingsSubmit() {
+    setIsPublicBookingSettingsSubmitting(true);
+
+    try {
+      const nextSettings = await api.updatePublicBookingSettings(
+        publicBookingSettings.depositAmount,
+      );
+      setPublicBookingSettings(nextSettings);
+      setForm((currentForm) => ({
+        ...currentForm,
+        depositAmount: nextSettings.depositAmount,
+      }));
+      showAppToast(
+        "success",
+        "Congratulations!",
+        "Đã cập nhật tiền cọc áp dụng cho booking QR ở site khách hàng.",
+      );
+    } catch (actionError) {
+      setError(
+        actionError instanceof Error
+          ? actionError.message
+          : "Không thể cập nhật cấu hình tiền cọc QR",
+      );
+    } finally {
+      setIsPublicBookingSettingsSubmitting(false);
     }
   }
 
@@ -1157,6 +1203,48 @@ export default function App() {
                 <p className="panel-tag">Tiếp nhận khách</p>
                 <h2>Nhập danh sách khách đã cọc</h2>
               </div>
+            </div>
+
+            <div className="grid-two qr-settings-grid">
+              <article className="selected-court-card qr-settings-card">
+                <span className="selected-court-label qr-settings-label">
+                  Cấu hình cọc booking QR
+                </span>
+                <strong className="qr-settings-value">
+                  {formatCurrencyDisplay(publicBookingSettings.depositAmount)}{" "}
+                  VND
+                </strong>
+                <small className="qr-settings-description">
+                  Mức này áp dụng cho site khách hàng khi tạo booking và sinh mã QR chuyển khoản mới.
+                </small>
+              </article>
+
+              <article className="selected-court-card qr-settings-card">
+                <label className="qr-settings-input-label">
+                  Tiền cọc áp dụng cho site khách hàng
+                  {renderCurrencyInput(
+                    publicBookingSettings.depositAmount,
+                    (depositAmount) =>
+                      setPublicBookingSettings((currentSettings) => ({
+                        ...currentSettings,
+                        depositAmount,
+                      })),
+                    "Tiền cọc booking QR",
+                  )}
+                </label>
+                <div className="quick-slot-admin-actions qr-settings-actions">
+                  <button
+                    type="button"
+                    className="primary-button"
+                    onClick={() => void handlePublicBookingSettingsSubmit()}
+                    disabled={isPublicBookingSettingsSubmitting}
+                  >
+                    {isPublicBookingSettingsSubmitting
+                      ? "Đang lưu mức cọc..."
+                      : "Lưu tiền cọc QR"}
+                  </button>
+                </div>
+              </article>
             </div>
 
             <form className="booking-form" onSubmit={handleBookingSubmit}>

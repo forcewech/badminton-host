@@ -26,6 +26,10 @@ export type QuickSlotPayload = {
   endTime: string;
 };
 
+export type PublicBookingSettings = {
+  depositAmount: number;
+};
+
 export type EquipmentItem = {
   id: number;
   name: string;

@@ -7,6 +7,7 @@ import type {
   DashboardOverview,
   EquipmentItem,
   LoginPayload,
+  PublicBookingSettings,
   QuickSlot,
   QuickSlotPayload,
 } from './types';
@@ -55,6 +56,13 @@ export const api = {
     }),
   getOverview: () => request<DashboardOverview>('/dashboard/overview'),
   getCourts: () => request<Court[]>('/courts'),
+  getPublicBookingSettings: () =>
+    request<PublicBookingSettings>('/settings/public-booking'),
+  updatePublicBookingSettings: (depositAmount: number) =>
+    request<PublicBookingSettings>('/settings/public-booking', {
+      method: 'PATCH',
+      body: JSON.stringify({ depositAmount }),
+    }),
   getQuickSlots: (date: string) =>
     request<QuickSlot[]>(`/quick-slots?date=${encodeURIComponent(date)}`),
   createQuickSlot: (payload: QuickSlotPayload) =>

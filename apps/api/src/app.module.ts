@@ -15,6 +15,8 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { QuickSlot } from './quick-slots/entities/quick-slot.entity';
 import { QuickSlotsModule } from './quick-slots/quick-slots.module';
 import { SeedModule } from './seed/seed.module';
+import { AppSetting } from './settings/entities/app-setting.entity';
+import { SettingsModule } from './settings/settings.module';
 
 @Module({
   imports: [
@@ -43,7 +45,7 @@ import { SeedModule } from './seed/seed.module';
           type: 'postgres' as const,
           url: databaseUrl,
           ssl: sslEnabled ? { rejectUnauthorized } : false,
-          entities: [Booking, Court, EquipmentItem, QuickSlot],
+          entities: [AppSetting, Booking, Court, EquipmentItem, QuickSlot],
           synchronize,
         };
       },
@@ -54,6 +56,7 @@ import { SeedModule } from './seed/seed.module';
     BookingsModule,
     DashboardModule,
     QuickSlotsModule,
+    SettingsModule,
     SeedModule,
   ],
   providers: [
