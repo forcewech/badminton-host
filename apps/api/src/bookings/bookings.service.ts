@@ -381,7 +381,7 @@ export class BookingsService {
   }
 
   private buildDepositPaymentInfo(booking: Booking) {
-    const bankBin = this.configService.get<string>("BANK_BIN", "970416");
+    const bankBin = this.configService.get<string>("BANK_BIN", "970436");
     const accountNumber = this.configService.get<string>(
       "BANK_ACCOUNT_NUMBER",
       "",
