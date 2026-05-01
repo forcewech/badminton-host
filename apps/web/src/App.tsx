@@ -100,19 +100,7 @@ const initialCourtForm: CourtPayload = {
 };
 
 function formatQuickSlotLabel(startTime: string, endTime: string) {
-  const formatTime = (time: string) => {
-    const [hours, minutes] = time.split(":").map(Number);
-    const date = new Date();
-    date.setHours(hours, minutes, 0, 0);
-
-    return new Intl.DateTimeFormat("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    }).format(date);
-  };
-
-  return `${formatTime(startTime)} - ${formatTime(endTime)}`;
+  return `${startTime} - ${endTime}`;
 }
 
 function getSkillLevelLabel(skillLevel: SkillLevel) {
@@ -1025,8 +1013,29 @@ export default function App() {
   );
 
   function exportHistoryToExcel() {
-    const rows = historyBookings.map((booking) => ({
-      "Tên sân": booking.court?.name ?? "Chưa phân sân",
+    const exportBookings = sortBookingsStable(
+      bookings
+        .filter((booking) => booking.bookingDate === historyDate)
+        .filter((booking) =>
+          booking.customerName
+            .toLowerCase()
+            .includes(searchTerm.trim().toLowerCase()),
+        )
+        .filter((booking) => {
+          if (transferFilter === "paid") return booking.fullPaymentTransferred;
+          if (transferFilter === "unpaid") return !booking.fullPaymentTransferred;
+          return true;
+        })
+        .filter((booking) => {
+          if (participationFilter === "checked_in")
+            return booking.status === "CHECKED_IN" || booking.status === "COMPLETED";
+          if (participationFilter === "no_show")
+            return booking.status === "NO_SHOW";
+          return true;
+        }),
+    );
+
+    const rows = exportBookings.map((booking) => ({
       Ngày: booking.bookingDate,
       "Giờ bắt đầu": booking.startTime,
       "Giờ kết thúc": booking.endTime,
@@ -1048,7 +1057,7 @@ export default function App() {
     XLSX.utils.book_append_sheet(workbook, worksheet, "QuảnLýSân");
     XLSX.writeFile(
       workbook,
-      `${selectedCourt?.name ?? "sân"}-${historyDate}-quản-lý.xlsx`,
+      `${historyDate}-quản-lý.xlsx`,
     );
   }
 

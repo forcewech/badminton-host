@@ -40,19 +40,7 @@ function formatCountdown(totalSeconds: number) {
 }
 
 function formatQuickSlotLabel(startTime: string, endTime: string) {
-  const formatTime = (time: string) => {
-    const [hours, minutes] = time.split(":").map(Number);
-    const date = new Date();
-    date.setHours(hours, minutes, 0, 0);
-
-    return new Intl.DateTimeFormat("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    }).format(date);
-  };
-
-  return `${formatTime(startTime)} - ${formatTime(endTime)}`;
+  return `${startTime} - ${endTime}`;
 }
 
 function getDisplayPhotoUrl(photoUrl?: string | null) {
@@ -87,9 +75,7 @@ const initialForm: PublicBookingPayload = {
 export default function App() {
   const [form, setForm] = useState<PublicBookingPayload>(initialForm);
   const [quickSlots, setQuickSlots] = useState<QuickSlot[]>([]);
-  const [selectedSlot, setSelectedSlot] = useState(
-    `${initialForm.startTime}-${initialForm.endTime}`,
-  );
+  const [selectedSlot, setSelectedSlot] = useState("");
   const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState("");
   const [submission, setSubmission] = useState<PublicBookingResponse | null>(
@@ -177,29 +163,7 @@ export default function App() {
         }
 
         setQuickSlots(nextQuickSlots);
-
-        if (nextQuickSlots.length === 0) {
-          setSelectedSlot("");
-          return;
-        }
-
-        const activeSlot = nextQuickSlots.find(
-          (slot) =>
-            slot.startTime === form.startTime && slot.endTime === form.endTime,
-        );
-
-        if (activeSlot) {
-          setSelectedSlot(`${activeSlot.startTime}-${activeSlot.endTime}`);
-          return;
-        }
-
-        const firstSlot = nextQuickSlots[0];
-        setSelectedSlot(`${firstSlot.startTime}-${firstSlot.endTime}`);
-        setForm((current) => ({
-          ...current,
-          startTime: firstSlot.startTime,
-          endTime: firstSlot.endTime,
-        }));
+        setSelectedSlot("");
       } catch {
         if (!cancelled) {
           setQuickSlots([]);
@@ -218,17 +182,6 @@ export default function App() {
       cancelled = true;
     };
   }, [form.bookingDate, submission]);
-
-  useEffect(() => {
-    const activeSlot = quickSlots.find(
-      (slot) =>
-        slot.startTime === form.startTime && slot.endTime === form.endTime,
-    );
-
-    setSelectedSlot(
-      activeSlot ? `${activeSlot.startTime}-${activeSlot.endTime}` : "",
-    );
-  }, [form.startTime, form.endTime, quickSlots]);
 
   useEffect(() => {
     if (!isPaid || hasHandledSuccessfulPayment) {
@@ -304,6 +257,12 @@ export default function App() {
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
+
+    if (!selectedSlot) {
+      toast.error("Vui lòng chọn khung giờ chơi trước khi tiếp tục.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -363,7 +322,7 @@ export default function App() {
     }
 
     setForm(initialForm);
-    setSelectedSlot(`${initialForm.startTime}-${initialForm.endTime}`);
+    setSelectedSlot("");
     setSelectedPhoto(null);
     setPhotoPreview("");
     setSubmission(null);
@@ -395,7 +354,7 @@ export default function App() {
               <form className="customer-form" onSubmit={handleSubmit}>
                 <div className="form-grid">
                   <label>
-                    Tên khách hàng
+                    Ghi đầy đủ họ tên
                     <input
                       value={form.customerName}
                       onChange={(event) =>
@@ -518,7 +477,7 @@ export default function App() {
                     onChange={(event) =>
                       handleFormChange("notes", event.target.value)
                     }
-                    placeholder="Ví dụ: đi nhóm 4 người, muốn khung giờ ổn định..."
+                    placeholder="Ví dụ: Đi cùng bạn nào trong nhóm, có đánh đôi nam nữ không or nữ nữ, nam nam..."
                     rows={4}
                   />
                 </label>
