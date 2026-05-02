@@ -61,6 +61,12 @@ export type Booking = {
   endTime: string;
   depositAmount: number;
   depositPaid: boolean;
+  depositReference?: string | null;
+  depositPaidAt?: string | null;
+  depositExpiresAt?: string | null;
+  depositTransactionId?: string | null;
+  depositTransferNote?: string | null;
+  depositReceivedWhileCancelled?: boolean;
   fullPaymentTransferred: boolean;
   status: BookingStatus;
   notes: string;

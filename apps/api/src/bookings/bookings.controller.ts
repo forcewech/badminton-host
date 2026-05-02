@@ -88,6 +88,11 @@ export class BookingsController {
     return this.bookingsService.confirmFullPayment(id);
   }
 
+  @Patch(':id/restore')
+  restoreCancelledBooking(@Param('id', ParseIntPipe) id: number) {
+    return this.bookingsService.restoreCancelledBooking(id);
+  }
+
   @Patch(':id/no-show')
   markNoShow(@Param('id', ParseIntPipe) id: number) {
     return this.bookingsService.markNoShow(id);

@@ -83,7 +83,7 @@ export default function App() {
   );
   const [paymentStatus, setPaymentStatus] =
     useState<PublicPaymentStatus | null>(null);
-  const [remainingSeconds, setRemainingSeconds] = useState(120);
+  const [remainingSeconds, setRemainingSeconds] = useState(300);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [isLoadingQuickSlots, setIsLoadingQuickSlots] = useState(false);
@@ -568,7 +568,7 @@ export default function App() {
                   {!isPaid && isExpired ? (
                     <div className="payment-loading-row payment-loading-row-expired">
                       <small>
-                        Mã QR đã hết hạn sau 2 phút. Vui lòng tạo lượt đăng ký
+                        Mã QR đã hết hạn sau 5 phút. Vui lòng tạo lượt đăng ký
                         mới.
                       </small>
                     </div>

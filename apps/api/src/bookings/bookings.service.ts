@@ -6,8 +6,9 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { Cron, CronExpression } from "@nestjs/schedule";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { LessThan, Repository } from "typeorm";
 import { BookingStatus } from "../common/enums/booking-status.enum";
 import { CourtsService } from "../courts/courts.service";
 import { AssignCourtDto } from "./dto/assign-court.dto";
@@ -182,9 +183,37 @@ export class BookingsService {
 
     await this.expirePendingBookingIfNeeded(booking);
 
+    if (booking.status === BookingStatus.CANCELLED) {
+      booking.depositPaid = true;
+      booking.depositPaidAt = booking.depositPaidAt ?? new Date().toISOString();
+      booking.depositTransferNote = transaction.description ?? null;
+      booking.depositTransactionId = transaction.transactionId ?? null;
+      booking.depositReceivedWhileCancelled = true;
+      await this.bookingsRepository.save(booking);
+
+      this.logger.error(
+        `[CẦN KIỂM TRA] Webhook nhận tiền cho booking ĐÃ HUỶ — ` +
+          `bookingId=${booking.id} | khách=${booking.customerName} | ` +
+          `reference=${transaction.reference} | ` +
+          `số tiền=${transaction.amount ?? "không rõ"} VNĐ | ` +
+          `hết hạn lúc=${booking.depositExpiresAt ?? "không có"}. ` +
+          `Booking đã được đánh dấu "Cần xử lý" trong hệ thống.`,
+      );
+      return {
+        received: true,
+        matched: false,
+        reason: "Booking has been cancelled.",
+      };
+    }
+
     if (this.isBookingExpired(booking)) {
-      this.logger.warn(
-        `Payment callback ignored because booking ${booking.id} with reference ${transaction.reference} has expired.`,
+      this.logger.error(
+        `[CẦN KIỂM TRA] Webhook nhận tiền cho booking HẾT HẠN — ` +
+          `bookingId=${booking.id} | khách=${booking.customerName} | ` +
+          `reference=${transaction.reference} | ` +
+          `số tiền=${transaction.amount ?? "không rõ"} VNĐ | ` +
+          `hết hạn lúc=${booking.depositExpiresAt ?? "không có"}. ` +
+          `Kiểm tra sao kê ngân hàng, có thể cần hoàn tiền thủ công.`,
       );
       return {
         received: true,
@@ -265,6 +294,25 @@ export class BookingsService {
     booking.paymentTransferredAt = new Date().toISOString();
     booking.status = BookingStatus.COMPLETED;
 
+    return this.bookingsRepository.save(booking);
+  }
+
+  async restoreCancelledBooking(id: number) {
+    const booking = await this.findById(id);
+
+    if (booking.status !== BookingStatus.CANCELLED) {
+      throw new BadRequestException(
+        "Chỉ có thể khôi phục booking đã bị huỷ.",
+      );
+    }
+
+    booking.status = BookingStatus.CONFIRMED;
+    booking.depositPaid = true;
+    booking.depositReceivedWhileCancelled = false;
+
+    this.logger.log(
+      `Restored cancelled booking ${booking.id} for customer ${booking.customerName}.`,
+    );
     return this.bookingsRepository.save(booking);
   }
 
@@ -425,6 +473,22 @@ export class BookingsService {
     }
 
     return new Date(booking.depositExpiresAt).getTime() <= Date.now();
+  }
+
+  @Cron(CronExpression.EVERY_MINUTE)
+  async cancelExpiredPendingBookings() {
+    const now = new Date().toISOString();
+    const result = await this.bookingsRepository.update(
+      {
+        status: BookingStatus.PENDING,
+        depositExpiresAt: LessThan(now),
+      },
+      { status: BookingStatus.CANCELLED },
+    );
+
+    if (result.affected && result.affected > 0) {
+      this.logger.log(`Cancelled ${result.affected} expired pending booking(s).`);
+    }
   }
 
   private async expirePendingBookingIfNeeded(booking: Booking) {

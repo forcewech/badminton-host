@@ -76,6 +76,11 @@ const mainSectionTabs = [
     label: "Khung giờ chơi",
     description: "Thêm và xóa khung giờ theo ngày",
   },
+  {
+    id: "transactions",
+    label: "Giao dịch",
+    description: "Tra cứu và xử lý giao dịch cọc QR",
+  },
 ] as const;
 
 const initialForm: CreateBookingPayload = {
@@ -169,6 +174,52 @@ function getDisplayPhotoUrl(photoUrl?: string | null) {
   }
 
   return photoUrl.replace("/upload/", "/upload/f_auto,q_auto/");
+}
+
+type TransactionFilter =
+  | "all"
+  | "success"
+  | "pending"
+  | "expired"
+  | "paid_while_cancelled";
+
+function getTransactionStatus(
+  booking: Booking,
+): "success" | "pending" | "expired" | "paid_while_cancelled" {
+  if (booking.depositReceivedWhileCancelled) return "paid_while_cancelled";
+  if (booking.depositPaid && booking.status !== "CANCELLED") return "success";
+  if (booking.status === "PENDING") return "pending";
+  return "expired";
+}
+
+function getTransactionStatusLabel(
+  status: ReturnType<typeof getTransactionStatus>,
+) {
+  switch (status) {
+    case "success":
+      return "Thành công";
+    case "pending":
+      return "Đang chờ";
+    case "expired":
+      return "Hết hạn";
+    case "paid_while_cancelled":
+      return "Cần xử lý";
+  }
+}
+
+function getTransactionStatusCssClass(
+  status: ReturnType<typeof getTransactionStatus>,
+) {
+  switch (status) {
+    case "success":
+      return "status-confirmed";
+    case "pending":
+      return "status-pending";
+    case "expired":
+      return "status-cancelled";
+    case "paid_while_cancelled":
+      return "status-no_show";
+  }
 }
 
 function sortBookingsStable(bookings: Booking[]) {
@@ -276,6 +327,7 @@ export default function App() {
   const [isCourtModalOpen, setIsCourtModalOpen] = useState(false);
   const [isQueueModalOpen, setIsQueueModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [detailBooking, setDetailBooking] = useState<Booking | null>(null);
   const [fullscreenPhotoUrl, setFullscreenPhotoUrl] = useState<string | null>(
     null,
@@ -294,6 +346,10 @@ export default function App() {
   const [isPublicBookingSettingsSubmitting, setIsPublicBookingSettingsSubmitting] =
     useState(false);
   const [isPhotoUploading, setIsPhotoUploading] = useState(false);
+  const [transactionFilter, setTransactionFilter] =
+    useState<TransactionFilter>("all");
+  const [transactionDateFilter, setTransactionDateFilter] =
+    useState<string>(() => getLocalDateInputValue());
 
   useEffect(() => {
     setApiAccessToken(authSession?.accessToken ?? "");
@@ -728,6 +784,24 @@ export default function App() {
     }
   }
 
+  async function handleRestoreBooking(id: number) {
+    try {
+      await api.restoreBooking(id);
+      await loadData();
+      showAppToast(
+        "success",
+        "Đã khôi phục!",
+        "Booking đã được khôi phục và đưa vào danh sách chờ phân sân.",
+      );
+    } catch (actionError) {
+      setError(
+        actionError instanceof Error
+          ? actionError.message
+          : "Không thể khôi phục booking",
+      );
+    }
+  }
+
   async function handleDeleteBooking(id: number) {
     try {
       await api.deleteBooking(id);
@@ -1012,6 +1086,28 @@ export default function App() {
       }),
   );
 
+  const qrBookingsForDate = bookings.filter(
+    (b) => b.depositReference && b.bookingDate === transactionDateFilter,
+  );
+  const transactionStats = {
+    total: qrBookingsForDate.length,
+    success: qrBookingsForDate.filter(
+      (b) => getTransactionStatus(b) === "success",
+    ).length,
+    expired: qrBookingsForDate.filter(
+      (b) => getTransactionStatus(b) === "expired",
+    ).length,
+    needsAction: qrBookingsForDate.filter(
+      (b) => getTransactionStatus(b) === "paid_while_cancelled",
+    ).length,
+  };
+  const transactionBookings = [...qrBookingsForDate]
+    .filter((b) => {
+      if (transactionFilter === "all") return true;
+      return getTransactionStatus(b) === transactionFilter;
+    })
+    .reverse();
+
   function exportHistoryToExcel() {
     const exportBookings = sortBookingsStable(
       bookings
@@ -1044,6 +1140,7 @@ export default function App() {
       "Trình độ": getSkillLevelLabel(booking.skillLevel),
       "Số điện thoại": booking.customerPhone,
       "Số tiền cọc": booking.depositAmount,
+      "Nội dung chuyển khoản": booking.depositReference ?? "",
       "Đã thanh toán cọc": booking.depositPaid ? "Có" : "Không",
       "Đã chuyển khoản": booking.fullPaymentTransferred ? "Có" : "Không",
       "Lượt đã chơi": getMatchTracking(booking.matchTracking).filter(Boolean)
@@ -1879,6 +1976,183 @@ export default function App() {
         </section>
       ) : null}
 
+      {activeSectionTab === "transactions" ? (
+        <section className="court-inventory-section">
+          <section className="panel">
+            <div className="panel-head">
+              <div>
+                <p className="panel-tag">Giao dịch cọc</p>
+                <h2>Quản lý giao dịch QR</h2>
+              </div>
+              <button
+                type="button"
+                className="ghost-button view-button"
+                onClick={() => setIsTransactionModalOpen(true)}
+              >
+                <span className="view-icon" aria-hidden="true">
+                  👁
+                </span>
+                <span>Xem</span>
+              </button>
+            </div>
+
+            <section className="stats-grid">
+              <StatCard
+                label="Tổng giao dịch QR"
+                value={transactionStats.total}
+              />
+              <StatCard label="Thành công" value={transactionStats.success} />
+              <StatCard
+                label="Hết hạn / Đã huỷ"
+                value={transactionStats.expired}
+              />
+              <StatCard
+                label="Cần xử lý"
+                value={transactionStats.needsAction}
+              />
+            </section>
+
+            <div className="management-toolbar">
+              <label className="history-filter">
+                <span>Ngày đặt</span>
+                <input
+                  type="date"
+                  value={transactionDateFilter}
+                  onChange={(event) =>
+                    setTransactionDateFilter(event.target.value)
+                  }
+                />
+              </label>
+              <label className="history-filter">
+                <span>Trạng thái</span>
+                <select
+                  value={transactionFilter}
+                  onChange={(event) =>
+                    setTransactionFilter(
+                      event.target.value as TransactionFilter,
+                    )
+                  }
+                >
+                  <option value="all">Tất cả giao dịch</option>
+                  <option value="success">Thành công</option>
+                  <option value="pending">Đang chờ thanh toán</option>
+                  <option value="expired">Hết hạn / Đã huỷ</option>
+                  <option value="paid_while_cancelled">Cần xử lý</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="schedule-list">
+              {transactionBookings.length === 0 ? (
+                <p className="empty-state">
+                  Không có giao dịch nào phù hợp với bộ lọc.
+                </p>
+              ) : (
+                transactionBookings.map((booking) => {
+                  const txStatus = getTransactionStatus(booking);
+                  const isPaidWhileCancelled =
+                    txStatus === "paid_while_cancelled";
+                  return (
+                    <article
+                      key={booking.id}
+                      className="booking-card compact-card"
+                      style={
+                        isPaidWhileCancelled
+                          ? {
+                              borderLeft: "4px solid #f59e0b",
+                              backgroundColor: "#fffbeb",
+                            }
+                          : undefined
+                      }
+                    >
+                      <div className="booking-card-top">
+                        <div>
+                          <h3>{booking.customerName}</h3>
+                          <p>
+                            {booking.bookingDate} · {booking.startTime} –{" "}
+                            {booking.endTime}
+                          </p>
+                        </div>
+                        <span
+                          className={`status ${getTransactionStatusCssClass(txStatus)}`}
+                        >
+                          {getTransactionStatusLabel(txStatus)}
+                        </span>
+                      </div>
+
+                      <div className="booking-meta">
+                        {booking.customerPhone ? (
+                          <span>{booking.customerPhone}</span>
+                        ) : null}
+                        <span>Mã: {booking.depositReference}</span>
+                        <span>
+                          {formatCurrencyDisplay(booking.depositAmount)} VNĐ
+                        </span>
+                        {booking.depositPaidAt ? (
+                          <span>
+                            Nhận lúc:{" "}
+                            {new Date(booking.depositPaidAt).toLocaleString(
+                              "vi-VN",
+                            )}
+                          </span>
+                        ) : booking.depositExpiresAt &&
+                          txStatus === "pending" ? (
+                          <span>
+                            Hết hạn lúc:{" "}
+                            {new Date(booking.depositExpiresAt).toLocaleString(
+                              "vi-VN",
+                            )}
+                          </span>
+                        ) : null}
+                        {booking.depositTransactionId ? (
+                          <span>Mã GD: {booking.depositTransactionId}</span>
+                        ) : null}
+                      </div>
+
+                      {booking.depositTransferNote ? (
+                        <div className="booking-note">
+                          <strong>Nội dung CK:</strong>{" "}
+                          {booking.depositTransferNote}
+                        </div>
+                      ) : null}
+
+                      {isPaidWhileCancelled ? (
+                        <div className="booking-note">
+                          Khách đã chuyển tiền nhưng booking bị huỷ trước khi
+                          xác nhận. Kiểm tra sao kê ngân hàng và chọn hành
+                          động phù hợp.
+                        </div>
+                      ) : null}
+
+                      {isPaidWhileCancelled ? (
+                        <div className="booking-actions">
+                          <button
+                            type="button"
+                            className="primary-button"
+                            onClick={() =>
+                              void handleRestoreBooking(booking.id)
+                            }
+                          >
+                            Khôi phục đặt sân
+                          </button>
+                          <button
+                            type="button"
+                            className="ghost-button"
+                            onClick={() => void handleDeleteBooking(booking.id)}
+                          >
+                            Xóa booking
+                          </button>
+                        </div>
+                      ) : null}
+                    </article>
+                  );
+                })
+              )}
+            </div>
+          </section>
+        </section>
+      ) : null}
+
       {isCourtModalOpen ? (
         <div
           className="modal-backdrop"
@@ -2100,6 +2374,143 @@ export default function App() {
               alt="Ảnh khách toàn màn hình"
               className="photo-lightbox-image"
             />
+          </div>
+        </div>
+      ) : null}
+
+      {isTransactionModalOpen ? (
+        <div
+          className="modal-backdrop modal-backdrop-wide"
+          role="presentation"
+          onClick={() => setIsTransactionModalOpen(false)}
+        >
+          <div
+            className="modal-card modal-card-fullscreen"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="transaction-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="panel-head modal-head-sticky">
+              <div>
+                <h2 id="transaction-modal-title">{`Giao dịch cọc - ${transactionDateFilter}`}</h2>
+              </div>
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={() => setIsTransactionModalOpen(false)}
+              >
+                Đóng
+              </button>
+            </div>
+
+            <div className="fullscreen-history-list">
+              {transactionBookings.length === 0 ? (
+                <p className="empty-state">
+                  Không có giao dịch nào phù hợp với bộ lọc.
+                </p>
+              ) : (
+                transactionBookings.map((booking) => {
+                  const txStatus = getTransactionStatus(booking);
+                  const isPaidWhileCancelled =
+                    txStatus === "paid_while_cancelled";
+                  return (
+                    <article
+                      key={booking.id}
+                      className="booking-card compact-card stadium-card"
+                      style={
+                        isPaidWhileCancelled
+                          ? {
+                              borderLeft: "4px solid #f59e0b",
+                              backgroundColor: "#fffbeb",
+                            }
+                          : undefined
+                      }
+                    >
+                      <div className="booking-card-top">
+                        <div>
+                          <h3>{booking.customerName}</h3>
+                          <p>
+                            {booking.bookingDate} · {booking.startTime} –{" "}
+                            {booking.endTime}
+                          </p>
+                        </div>
+                        <span
+                          className={`status ${getTransactionStatusCssClass(txStatus)}`}
+                        >
+                          {getTransactionStatusLabel(txStatus)}
+                        </span>
+                      </div>
+
+                      <div className="booking-meta">
+                        {booking.customerPhone ? (
+                          <span>{booking.customerPhone}</span>
+                        ) : null}
+                        <span>Mã: {booking.depositReference}</span>
+                        <span>
+                          {formatCurrencyDisplay(booking.depositAmount)} VNĐ
+                        </span>
+                        {booking.depositPaidAt ? (
+                          <span>
+                            Nhận lúc:{" "}
+                            {new Date(booking.depositPaidAt).toLocaleString(
+                              "vi-VN",
+                            )}
+                          </span>
+                        ) : booking.depositExpiresAt &&
+                          txStatus === "pending" ? (
+                          <span>
+                            Hết hạn lúc:{" "}
+                            {new Date(booking.depositExpiresAt).toLocaleString(
+                              "vi-VN",
+                            )}
+                          </span>
+                        ) : null}
+                        {booking.depositTransactionId ? (
+                          <span>Mã GD: {booking.depositTransactionId}</span>
+                        ) : null}
+                      </div>
+
+                      {booking.depositTransferNote ? (
+                        <div className="booking-note">
+                          <strong>Nội dung CK:</strong>{" "}
+                          {booking.depositTransferNote}
+                        </div>
+                      ) : null}
+
+                      {isPaidWhileCancelled ? (
+                        <div className="booking-note">
+                          Khách đã chuyển tiền nhưng booking bị huỷ trước khi
+                          xác nhận. Kiểm tra sao kê ngân hàng và chọn hành
+                          động phù hợp.
+                        </div>
+                      ) : null}
+
+                      {isPaidWhileCancelled ? (
+                        <div className="booking-actions">
+                          <button
+                            type="button"
+                            className="primary-button"
+                            onClick={() =>
+                              void handleRestoreBooking(booking.id)
+                            }
+                          >
+                            Khôi phục đặt sân
+                          </button>
+                          <button
+                            type="button"
+                            className="ghost-button"
+                            onClick={() => void handleDeleteBooking(booking.id)}
+                          >
+                            Xóa booking
+                          </button>
+                        </div>
+                      ) : null}
+                    </article>
+                  );
+                })
+              )}
+            </div>
           </div>
         </div>
       ) : null}

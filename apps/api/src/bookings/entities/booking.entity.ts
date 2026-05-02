@@ -70,6 +70,9 @@ export class Booking {
   depositTransactionId?: string | null;
 
   @Column({ default: false })
+  depositReceivedWhileCancelled!: boolean;
+
+  @Column({ default: false })
   fullPaymentTransferred!: boolean;
 
   @Column({

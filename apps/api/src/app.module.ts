@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { APP_GUARD } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { resolve } from 'path';
@@ -50,6 +51,7 @@ import { SettingsModule } from './settings/settings.module';
         };
       },
     }),
+    ScheduleModule.forRoot(),
     AuthModule,
     CourtsModule,
     EquipmentModule,

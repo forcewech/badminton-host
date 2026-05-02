@@ -129,6 +129,10 @@ export const api = {
     request<Booking>(`/bookings/${id}/no-show`, {
       method: 'PATCH',
     }),
+  restoreBooking: (id: number) =>
+    request<Booking>(`/bookings/${id}/restore`, {
+      method: 'PATCH',
+    }),
   deleteBooking: (id: number) =>
     request<{ id: number; deleted: boolean }>(`/bookings/${id}`, {
       method: 'DELETE',
