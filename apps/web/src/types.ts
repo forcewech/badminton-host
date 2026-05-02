@@ -103,6 +103,120 @@ export type AuthSession = {
   };
 };
 
+// ── Play-session coordination types ───────────────────────────────────────────
+
+export type PlayerSkillLevel = 'TB' | 'TB_PLUS' | 'KHA' | 'GIOI';
+export type SessionStatus = 'UPCOMING' | 'ACTIVE' | 'ENDED';
+export type MatchStatus = 'PLAYING' | 'ENDED';
+
+export type PlaySessionPlayer = {
+  id: number;
+  sessionId: number;
+  name: string;
+  skillLevel: PlayerSkillLevel;
+  isCheckedIn: boolean;
+  checkedInAt: string | null;
+  matchesPlayed: number;
+  consecutiveMatches: number;
+  lastMatchEndedAt: string | null;
+  isCurrentlyPlaying: boolean;
+  createdAt: string;
+};
+
+export type PlaySessionMatch = {
+  id: number;
+  sessionId: number;
+  courtNumber: number;
+  teamAPlayer1Id: number;
+  teamAPlayer2Id: number;
+  teamBPlayer1Id: number;
+  teamBPlayer2Id: number;
+  scoreA: number;
+  scoreB: number;
+  status: MatchStatus;
+  startedAt: string;
+  endedAt: string | null;
+};
+
+export type SuggestionReason = {
+  type: 'success' | 'warning' | 'info';
+  text: string;
+};
+
+export type TeamOption = {
+  teamA: PlaySessionPlayer[];
+  teamB: PlaySessionPlayer[];
+  skillDiff: number;
+  reasons: SuggestionReason[];
+};
+
+export type PairingSuggestion = {
+  court: number;
+  options: TeamOption[];
+};
+
+export type PlaySession = {
+  id: number;
+  name: string;
+  venue: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  numberOfCourts: number;
+  status: SessionStatus;
+  startedAt: string | null;
+  createdAt: string;
+  players: PlaySessionPlayer[];
+  matches: PlaySessionMatch[];
+  suggestions: PairingSuggestion[];
+};
+
+export type BookingSlot = {
+  startTime: string;
+  endTime: string;
+  courts: string[];
+  totalBookings: number;
+  checkedInCount: number;
+  unassignedCount: number;
+  existingSessionId: number | null;
+};
+
+export type CreatePlaySessionPayload = {
+  name: string;
+  venue?: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  numberOfCourts: number;
+};
+
+export type AddPlayerPayload = {
+  name: string;
+  skillLevel: PlayerSkillLevel;
+};
+
+export type StartMatchPayload = {
+  courtNumber: number;
+  teamAPlayer1Id: number;
+  teamAPlayer2Id: number;
+  teamBPlayer1Id: number;
+  teamBPlayer2Id: number;
+};
+
+// ──────────────────────────────────────────────────────────────────────────────
+
+export type UpdateBookingPayload = {
+  customerName?: string;
+  customerPhone?: string;
+  gender?: CustomerGender;
+  skillLevel?: SkillLevel;
+  bookingDate?: string;
+  startTime?: string;
+  endTime?: string;
+  depositAmount?: number;
+  notes?: string;
+};
+
 export type CreateBookingPayload = {
   customerName: string;
   customerPhone?: string;

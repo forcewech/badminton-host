@@ -1,15 +1,21 @@
 import type {
+  AddPlayerPayload,
   AuthSession,
   Booking,
+  BookingSlot,
   Court,
   CourtPayload,
   CreateBookingPayload,
+  UpdateBookingPayload,
+  CreatePlaySessionPayload,
   DashboardOverview,
   EquipmentItem,
   LoginPayload,
+  PlaySession,
   PublicBookingSettings,
   QuickSlot,
   QuickSlotPayload,
+  StartMatchPayload,
 } from './types';
 
 function getDefaultApiUrl() {
@@ -89,6 +95,11 @@ export const api = {
       method: 'DELETE',
     }),
   getBookings: () => request<Booking[]>('/bookings'),
+  updateBooking: (id: number, payload: UpdateBookingPayload) =>
+    request<Booking>(`/bookings/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
   createBooking: (payload: CreateBookingPayload) =>
     request<Booking>('/bookings', {
       method: 'POST',
@@ -136,6 +147,62 @@ export const api = {
   deleteBooking: (id: number) =>
     request<{ id: number; deleted: boolean }>(`/bookings/${id}`, {
       method: 'DELETE',
+    }),
+  getBookingSlots: (date: string) =>
+    request<BookingSlot[]>(`/play-sessions/booking-slots?date=${encodeURIComponent(date)}`),
+  getSlotBookings: (date: string, startTime: string, endTime: string) =>
+    request<Booking[]>(
+      `/play-sessions/slot-bookings?date=${encodeURIComponent(date)}&startTime=${encodeURIComponent(startTime)}&endTime=${encodeURIComponent(endTime)}`,
+    ),
+  createSessionFromSlot: (date: string, startTime: string, endTime: string, numberOfCourts?: number) =>
+    request<PlaySession>('/play-sessions/from-booking-slot', {
+      method: 'POST',
+      body: JSON.stringify({ date, startTime, endTime, numberOfCourts }),
+    }),
+  getSessions: () => request<PlaySession[]>('/play-sessions'),
+  getSession: (id: number) => request<PlaySession>(`/play-sessions/${id}`),
+  getPublicBoard: (id: number) => request<PlaySession>(`/play-sessions/${id}/board`),
+  createSession: (payload: CreatePlaySessionPayload) =>
+    request<PlaySession>('/play-sessions', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  updateSessionCourts: (id: number, numberOfCourts: number) =>
+    request<PlaySession>(`/play-sessions/${id}/courts`, {
+      method: 'PATCH',
+      body: JSON.stringify({ numberOfCourts }),
+    }),
+  updateSessionStatus: (id: number, status: 'ACTIVE' | 'ENDED') =>
+    request<PlaySession>(`/play-sessions/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    }),
+  addSessionPlayer: (id: number, payload: AddPlayerPayload) =>
+    request<PlaySession>(`/play-sessions/${id}/players`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  removeSessionPlayer: (id: number, playerId: number) =>
+    request<PlaySession>(`/play-sessions/${id}/players/${playerId}`, {
+      method: 'DELETE',
+    }),
+  checkInSessionPlayer: (id: number, playerId: number) =>
+    request<PlaySession>(`/play-sessions/${id}/players/${playerId}/check-in`, {
+      method: 'PATCH',
+    }),
+  startMatch: (id: number, payload: StartMatchPayload) =>
+    request<PlaySession>(`/play-sessions/${id}/matches`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  updateMatchScore: (id: number, matchId: number, scoreA: number, scoreB: number) =>
+    request<PlaySession>(`/play-sessions/${id}/matches/${matchId}/score`, {
+      method: 'PATCH',
+      body: JSON.stringify({ scoreA, scoreB }),
+    }),
+  endMatch: (id: number, matchId: number) =>
+    request<PlaySession>(`/play-sessions/${id}/matches/${matchId}/end`, {
+      method: 'PATCH',
     }),
   getEquipment: () => request<EquipmentItem[]>('/equipment'),
   updateEquipment: (id: number, payload: Partial<EquipmentItem>) =>

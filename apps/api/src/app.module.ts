@@ -18,6 +18,10 @@ import { QuickSlotsModule } from './quick-slots/quick-slots.module';
 import { SeedModule } from './seed/seed.module';
 import { AppSetting } from './settings/entities/app-setting.entity';
 import { SettingsModule } from './settings/settings.module';
+import { PlaySession } from './play-sessions/entities/play-session.entity';
+import { PlaySessionPlayer } from './play-sessions/entities/play-session-player.entity';
+import { PlaySessionMatch } from './play-sessions/entities/play-session-match.entity';
+import { PlaySessionsModule } from './play-sessions/play-sessions.module';
 
 @Module({
   imports: [
@@ -46,7 +50,7 @@ import { SettingsModule } from './settings/settings.module';
           type: 'postgres' as const,
           url: databaseUrl,
           ssl: sslEnabled ? { rejectUnauthorized } : false,
-          entities: [AppSetting, Booking, Court, EquipmentItem, QuickSlot],
+          entities: [AppSetting, Booking, Court, EquipmentItem, QuickSlot, PlaySession, PlaySessionPlayer, PlaySessionMatch],
           synchronize,
         };
       },
@@ -59,6 +63,7 @@ import { SettingsModule } from './settings/settings.module';
     DashboardModule,
     QuickSlotsModule,
     SettingsModule,
+    PlaySessionsModule,
     SeedModule,
   ],
   providers: [

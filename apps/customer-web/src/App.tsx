@@ -1,4 +1,4 @@
-import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+﻿import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { Toaster, toast } from "react-hot-toast";
 import { api } from "./api";
 import type {
@@ -477,7 +477,7 @@ export default function App() {
                     onChange={(event) =>
                       handleFormChange("notes", event.target.value)
                     }
-                    placeholder="Ví dụ: Đi cùng bạn nào trong nhóm, có đánh đôi nam nữ không or nữ nữ, nam nam..."
+                    placeholder="Ví dụ: Đi cùng bạn nào trong nhóm, có đánh đôi nam nữ không hoặc nữ nữ, nam nam..."
                     rows={4}
                   />
                 </label>
@@ -568,7 +568,7 @@ export default function App() {
                   {!isPaid && isExpired ? (
                     <div className="payment-loading-row payment-loading-row-expired">
                       <small>
-                        Mã QR đã hết hạn sau 5 phút. Vui lòng tạo lượt đăng ký
+                        Mã QR đã hết hạn sau 2 phút. Vui lòng tạo lượt đăng ký
                         mới.
                       </small>
                     </div>
@@ -683,7 +683,7 @@ export default function App() {
               className="lightbox-close"
               onClick={() => setFullscreenPhotoUrl(null)}
             >
-              Đóng
+                Đóng
             </button>
             <img
               src={getDisplayPhotoUrl(fullscreenPhotoUrl)}
@@ -725,3 +725,5 @@ export default function App() {
     </div>
   );
 }
+
+

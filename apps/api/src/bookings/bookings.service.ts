@@ -16,8 +16,11 @@ import { CreateBookingDto } from "./dto/create-booking.dto";
 import { CreatePublicBookingDto } from "./dto/create-public-booking.dto";
 import { Booking } from "./entities/booking.entity";
 import { UpdateMatchTrackingDto } from "./dto/update-match-tracking.dto";
+import { UpdateBookingDto } from "./dto/update-booking.dto";
 import { CloudinaryService } from "./cloudinary.service";
 import { SettingsService } from "../settings/settings.service";
+import { PlaySession } from "../play-sessions/entities/play-session.entity";
+import { PlaySessionPlayer } from "../play-sessions/entities/play-session-player.entity";
 
 @Injectable()
 export class BookingsService {
@@ -26,6 +29,10 @@ export class BookingsService {
   constructor(
     @InjectRepository(Booking)
     private readonly bookingsRepository: Repository<Booking>,
+    @InjectRepository(PlaySession)
+    private readonly sessionRepository: Repository<PlaySession>,
+    @InjectRepository(PlaySessionPlayer)
+    private readonly sessionPlayerRepository: Repository<PlaySessionPlayer>,
     private readonly courtsService: CourtsService,
     private readonly cloudinaryService: CloudinaryService,
     private readonly configService: ConfigService,
@@ -66,6 +73,7 @@ export class BookingsService {
     });
 
     const savedBooking = await this.bookingsRepository.save(booking);
+    await this.syncSessionPlayerFromBooking(savedBooking);
     return this.ensureDepositReference(savedBooking);
   }
 
@@ -95,6 +103,7 @@ export class BookingsService {
     });
 
     const savedBooking = await this.bookingsRepository.save(booking);
+    await this.syncSessionPlayerFromBooking(savedBooking);
     const bookingWithReference =
       await this.ensureDepositReference(savedBooking);
 
@@ -247,6 +256,7 @@ export class BookingsService {
     }
 
     const savedBooking = await this.bookingsRepository.save(booking);
+    await this.syncSessionPlayerFromBooking(savedBooking);
     this.logger.log(
       `Deposit confirmed for booking ${savedBooking.id} with reference ${savedBooking.depositReference}.`,
     );
@@ -263,12 +273,6 @@ export class BookingsService {
   async checkIn(id: number) {
     const booking = await this.findById(id);
 
-    if (!booking.court) {
-      throw new BadRequestException(
-        "A court must be assigned before check-in.",
-      );
-    }
-
     if (booking.depositAmount > 0 && !booking.depositPaid) {
       throw new BadRequestException(
         "Deposit must be marked as paid before check-in.",
@@ -277,8 +281,9 @@ export class BookingsService {
 
     booking.status = BookingStatus.CHECKED_IN;
     booking.checkInAt = new Date().toISOString();
-
-    return this.bookingsRepository.save(booking);
+    const savedBooking = await this.bookingsRepository.save(booking);
+    await this.syncSessionPlayerFromBooking(savedBooking);
+    return savedBooking;
   }
 
   async confirmFullPayment(id: number) {
@@ -357,6 +362,12 @@ export class BookingsService {
     return this.bookingsRepository.save(booking);
   }
 
+  async update(id: number, dto: UpdateBookingDto) {
+    const booking = await this.findById(id);
+    Object.assign(booking, dto);
+    return this.bookingsRepository.save(booking);
+  }
+
   async remove(id: number) {
     const booking = await this.findById(id);
 
@@ -364,6 +375,7 @@ export class BookingsService {
       await this.cloudinaryService.deleteCustomerPhoto(booking.photoPublicId);
     }
 
+    await this.sessionPlayerRepository.delete({ bookingId: id });
     await this.bookingsRepository.remove(booking);
     return { id, deleted: true };
   }
@@ -399,6 +411,60 @@ export class BookingsService {
 
     booking.depositReference = `${this.getDepositReferencePrefix()}${booking.id}`;
     return this.bookingsRepository.save(booking);
+  }
+
+  private async syncSessionPlayerFromBooking(booking: Booking) {
+    const players = await this.sessionPlayerRepository.find({
+      where: { bookingId: booking.id },
+    });
+
+    if (players.length === 0) {
+      // Nếu booking bị huỷ thì không cần thêm vào session
+      if (booking.status === BookingStatus.CANCELLED) return;
+
+      // Tìm session của khung giờ này để thêm player nếu session đã tồn tại
+      const session = await this.sessionRepository.findOne({
+        where: {
+          date: booking.bookingDate,
+          startTime: booking.startTime,
+          endTime: booking.endTime,
+        },
+      });
+      if (!session || session.status === 'ENDED') return;
+
+      const player = this.sessionPlayerRepository.create({
+        sessionId: session.id,
+        bookingId: booking.id,
+        name: booking.customerName,
+        skillLevel: this.mapBookingSkillLevel(booking.skillLevel) as any,
+        isCheckedIn: booking.status === BookingStatus.CHECKED_IN,
+        checkedInAt: booking.status === BookingStatus.CHECKED_IN
+          ? new Date(booking.checkInAt ?? new Date().toISOString())
+          : null,
+      });
+      await this.sessionPlayerRepository.save(player);
+      return;
+    }
+
+    for (const player of players) {
+      if (booking.status === BookingStatus.CANCELLED) {
+        await this.sessionPlayerRepository.remove(player);
+      } else {
+        player.name = booking.customerName;
+        player.skillLevel = this.mapBookingSkillLevel(booking.skillLevel) as any;
+        player.isCheckedIn = booking.status === BookingStatus.CHECKED_IN;
+        player.checkedInAt = booking.status === BookingStatus.CHECKED_IN
+          ? new Date(booking.checkInAt ?? new Date().toISOString())
+          : null;
+        await this.sessionPlayerRepository.save(player);
+      }
+    }
+  }
+
+  private mapBookingSkillLevel(level: string) {
+    if (level === "ADVANCED") return "GIOI";
+    if (level === "INTERMEDIATE") return "KHA";
+    return "TB";
   }
 
   private async getDefaultDepositAmount() {

@@ -19,6 +19,7 @@ import { BookingsService } from './bookings.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { CreatePublicBookingDto } from './dto/create-public-booking.dto';
 import { UpdateMatchTrackingDto } from './dto/update-match-tracking.dto';
+import { UpdateBookingDto } from './dto/update-booking.dto';
 
 @Controller('bookings')
 export class BookingsController {
@@ -63,6 +64,14 @@ export class BookingsController {
   @UseInterceptors(FileInterceptor('file'))
   uploadPhoto(@UploadedFile() file: { buffer?: Buffer; mimetype?: string }) {
     return this.cloudinaryService.uploadCustomerPhoto(file);
+  }
+
+  @Patch(':id')
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateBookingDto: UpdateBookingDto,
+  ) {
+    return this.bookingsService.update(id, updateBookingDto);
   }
 
   @Patch(':id/assign-court')

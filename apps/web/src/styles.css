@@ -126,7 +126,7 @@ select {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.75rem;
-  margin-bottom: 1rem;
+  margin: 1rem 0;
 }
 
 .section-tab-button {
@@ -842,56 +842,6 @@ select {
   color: #13313d;
 }
 
-.match-tracking {
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid #deeaee;
-}
-
-.match-tracking-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-  margin-bottom: 0.75rem;
-}
-
-.match-tracking-head strong {
-  font-size: 0.95rem;
-}
-
-.match-tracking-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
-}
-
-.match-box {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  padding: 0.7rem 0.8rem;
-  border-radius: 14px;
-  border: 1px solid #d5e4e9;
-  background: #f7fbfc;
-  cursor: pointer;
-}
-
-.match-box.checked {
-  border-color: #165f59;
-  background: #e5f4ef;
-}
-
-.match-box input {
-  width: 1rem;
-  height: 1rem;
-  margin: 0;
-}
-
-.match-box span {
-  font-size: 0.9rem;
-  font-weight: 600;
-}
 
 .status {
   display: inline-flex;
@@ -1166,6 +1116,100 @@ select {
   color: #35515c;
 }
 
+.customer-edit-form {
+  display: grid;
+  gap: 1rem;
+  padding: 0.35rem 0 0.15rem;
+}
+
+.customer-edit-hero {
+  display: grid;
+  gap: 0.3rem;
+  padding: 1rem 1.1rem;
+  border-radius: 20px;
+  border: 1px solid #d8e5e9;
+  background: linear-gradient(180deg, #f9fcfd 0%, #f3f8fa 100%);
+}
+
+.customer-edit-hero h3 {
+  margin: 0;
+  font-size: 1.12rem;
+  line-height: 1.2;
+  color: #143744;
+}
+
+.customer-edit-hero p:last-child {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: #5d737d;
+}
+
+.customer-edit-grid {
+  display: grid;
+  gap: 0.95rem;
+}
+
+.customer-edit-grid-two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.customer-edit-grid-three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.customer-edit-field {
+  display: grid;
+  gap: 0.42rem;
+}
+
+.customer-edit-field > span {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #183745;
+}
+
+.customer-edit-field input,
+.customer-edit-field select,
+.customer-edit-field textarea,
+.customer-edit-field .currency-input input {
+  width: 100%;
+  padding: 0.85rem 0.95rem;
+  border-radius: 14px;
+  border: 1px solid #c8d7de;
+  background: #f8fbfc;
+  color: #143744;
+}
+
+.customer-edit-field textarea {
+  min-height: 6.8rem;
+  resize: vertical;
+}
+
+.customer-edit-field input:focus,
+.customer-edit-field select:focus,
+.customer-edit-field textarea:focus,
+.customer-edit-field .currency-input input:focus {
+  outline: none;
+  border-color: #1d766e;
+  box-shadow: 0 0 0 3px rgba(29, 118, 110, 0.12);
+}
+
+.customer-edit-field .currency-input {
+  margin-bottom: 0;
+}
+
+.customer-edit-field-full {
+  margin-top: 0.1rem;
+}
+
+.customer-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.15rem;
+}
+
 .photo-lightbox {
   padding: 0;
   background: rgba(8, 20, 28, 0.88);
@@ -1203,9 +1247,9 @@ select {
 }
 
 .modal-card-fullscreen {
-  width: 100vw;
+  width: 100%;
   max-width: none;
-  height: 100vh;
+  height: 100%;
   max-height: none;
   border-radius: 0;
   padding: 1rem;
@@ -1340,10 +1384,6 @@ select {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .match-tracking-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
   .fullscreen-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1450,8 +1490,7 @@ select {
 
   .panel-head,
   .booking-card-top,
-  .history-subhead-row,
-  .match-tracking-head {
+  .history-subhead-row {
     flex-direction: column;
     align-items: stretch;
   }
@@ -1518,6 +1557,29 @@ select {
     grid-template-columns: 1fr;
   }
 
+  .customer-edit-grid-two,
+  .customer-edit-grid-three {
+    grid-template-columns: 1fr;
+  }
+
+  .customer-edit-hero {
+    padding: 0.85rem 0.9rem;
+  }
+
+  .customer-edit-hero h3 {
+    font-size: 1rem;
+  }
+
+  .customer-edit-actions {
+    flex-direction: column-reverse;
+  }
+
+  .customer-edit-actions .ghost-button,
+  .customer-edit-actions .primary-button {
+    width: 100%;
+    justify-content: center;
+  }
+
   .customer-detail-item,
   .customer-detail-note,
   .selected-court-card,
@@ -1534,14 +1596,6 @@ select {
   .booking-meta span {
     font-size: 0.78rem;
     padding: 0.34rem 0.58rem;
-  }
-
-  .match-box {
-    padding: 0.62rem 0.7rem;
-  }
-
-  .match-box span {
-    font-size: 0.84rem;
   }
 
   .modal-backdrop {
@@ -1571,7 +1625,7 @@ select {
   .modal-card-fullscreen {
     width: 100%;
     height: 100%;
-    min-height: 100vh;
+    min-height: 100%;
     padding: 0.75rem;
   }
 
