@@ -350,16 +350,15 @@ export default function App() {
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [quickSlots, setQuickSlots] = useState<QuickSlot[]>([]);
-  const [slotManagementDate, setSlotManagementDate] = useState<string>(today);
   const [slotManagementSlots, setSlotManagementSlots] = useState<QuickSlot[]>(
     [],
   );
-  const [form, setForm] = useState<CreateBookingPayload>(initialForm);
+  const [form, setForm] = useState<CreateBookingPayload>(() => ({ ...initialForm, bookingDate: getLocalDateInputValue() }));
   const [quickSlotDraft, setQuickSlotDraft] = useState({
     startTime: "19:00",
     endTime: "21:00",
   });
-  const [historyDate, setHistoryDate] = useState<string>(() =>
+  const [selectedDate, setSelectedDate] = useState<string>(() =>
     getLocalDateInputValue(),
   );
   const [searchTerm, setSearchTerm] = useState<string>("");
@@ -397,8 +396,6 @@ export default function App() {
   const [isPhotoUploading, setIsPhotoUploading] = useState(false);
   const [transactionFilter, setTransactionFilter] =
     useState<TransactionFilter>("all");
-  const [transactionDateFilter, setTransactionDateFilter] =
-    useState<string>(() => getLocalDateInputValue());
 
   // ── Play-session coordination state ─────────────────────────────────────────
   const [boardModeId] = useState<number | null>(() => {
@@ -428,7 +425,6 @@ export default function App() {
   const [suggestionOptionIndex, setSuggestionOptionIndex] = useState<
     Record<number, number>
   >({});
-  const [coordinationDate, setCoordinationDate] = useState<string>(today);
   const [bookingSlots, setBookingSlots] = useState<BookingSlot[]>([]);
   const [isSlotsLoading, setIsSlotsLoading] = useState(false);
   const [slotCourtCounts, setSlotCourtCounts] = useState<Record<string, number>>({});
@@ -577,7 +573,7 @@ export default function App() {
       if (activeSectionTab === "coordination") {
         const [sessionsData, slotsData] = await Promise.all([
           api.getSessions(),
-          api.getBookingSlots(coordinationDate),
+          api.getBookingSlots(selectedDate),
         ]);
         setSessions(sessionsData);
         setBookingSlots(slotsData);
@@ -626,12 +622,16 @@ export default function App() {
   }, [authSession, form.bookingDate]);
 
   useEffect(() => {
+    setForm((f) => ({ ...f, bookingDate: selectedDate }));
+  }, [selectedDate]);
+
+  useEffect(() => {
     if (!authSession) {
       return;
     }
 
-    void loadSlotManagementQuickSlots(slotManagementDate);
-  }, [authSession, slotManagementDate]);
+    void loadSlotManagementQuickSlots(selectedDate);
+  }, [authSession, selectedDate]);
 
   useEffect(() => {
     if (quickSlots.length === 0) {
@@ -682,7 +682,7 @@ export default function App() {
       try {
         const [sessions, slots] = await Promise.all([
           api.getSessions(),
-          api.getBookingSlots(coordinationDate),
+          api.getBookingSlots(selectedDate),
         ]);
         setSessions(sessions);
         setBookingSlots(slots);
@@ -800,7 +800,7 @@ export default function App() {
 
     try {
       await api.createBooking(form);
-      setForm(initialForm);
+      setForm({ ...initialForm, bookingDate: selectedDate });
       await loadData();
       showAppToast(
         "success",
@@ -823,14 +823,14 @@ export default function App() {
 
     try {
       await api.createQuickSlot({
-        bookingDate: slotManagementDate,
+        bookingDate: selectedDate,
         startTime: quickSlotDraft.startTime,
         endTime: quickSlotDraft.endTime,
       });
       await Promise.all([
-        loadSlotManagementQuickSlots(slotManagementDate),
-        form.bookingDate === slotManagementDate
-          ? loadQuickSlots(slotManagementDate)
+        loadSlotManagementQuickSlots(selectedDate),
+        form.bookingDate === selectedDate
+          ? loadQuickSlots(selectedDate)
           : Promise.resolve(),
       ]);
       showAppToast(
@@ -853,9 +853,9 @@ export default function App() {
     try {
       await api.deleteQuickSlot(id);
       await Promise.all([
-        loadSlotManagementQuickSlots(slotManagementDate),
-        form.bookingDate === slotManagementDate
-          ? loadQuickSlots(slotManagementDate)
+        loadSlotManagementQuickSlots(selectedDate),
+        form.bookingDate === selectedDate
+          ? loadQuickSlots(selectedDate)
           : Promise.resolve(),
       ]);
       showAppToast(
@@ -1033,7 +1033,7 @@ export default function App() {
         const slotKey = `${slot.startTime}|${slot.endTime}`;
         const courtCount = slotCourtCounts[slotKey] ?? Math.max(slot.courts.length, 1);
         session = await api.createSessionFromSlot(
-          coordinationDate,
+          selectedDate,
           slot.startTime,
           slot.endTime,
           courtCount,
@@ -1335,7 +1335,7 @@ export default function App() {
 
   const racketPlayerBookings = sortBookingsStable(
     bookings
-      .filter((booking) => booking.bookingDate === historyDate)
+      .filter((booking) => booking.bookingDate === selectedDate)
       .filter((booking) => booking.depositPaid)
       .filter((booking) => booking.status !== "CANCELLED")
       .filter((booking) =>
@@ -1379,7 +1379,7 @@ export default function App() {
     });
 
   const qrBookingsForDate = bookings.filter(
-    (b) => b.depositReference && b.bookingDate === transactionDateFilter,
+    (b) => b.depositReference && b.bookingDate === selectedDate,
   );
   const transactionStats = {
     total: qrBookingsForDate.length,
@@ -1403,7 +1403,7 @@ export default function App() {
   function exportHistoryToExcel() {
     const exportBookings = sortBookingsStable(
       bookings
-        .filter((booking) => booking.bookingDate === historyDate)
+        .filter((booking) => booking.bookingDate === selectedDate)
         .filter((booking) =>
           booking.customerName
             .toLowerCase()
@@ -1444,7 +1444,7 @@ export default function App() {
     XLSX.utils.book_append_sheet(workbook, worksheet, "QuảnLýSân");
     XLSX.writeFile(
       workbook,
-      `${historyDate}-quản-lý.xlsx`,
+      `${selectedDate}-quản-lý.xlsx`,
     );
   }
 
@@ -1911,6 +1911,21 @@ export default function App() {
 
       {error ? <div className="alert">{error}</div> : null}
 
+      <div className="global-date-bar">
+        <label className="global-date-label">
+          <span>Ngày xem</span>
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => {
+              setSelectedDate(e.target.value);
+              setSlotFilter("all");
+              void handleLoadBookingSlots(e.target.value);
+            }}
+          />
+        </label>
+      </div>
+
       <nav className="section-tabs" aria-label="Điều hướng khu vực chính">
         {mainSectionTabs.map((tab) => (
           <button
@@ -2223,14 +2238,6 @@ export default function App() {
             </div>
             <div className="management-toolbar">
               <label className="history-filter">
-                <span>Ngày xem</span>
-                <input
-                  type="date"
-                  value={historyDate}
-                  onChange={(event) => { setHistoryDate(event.target.value); setSlotFilter("all"); }}
-                />
-              </label>
-              <label className="history-filter">
                 <span>Tìm khách hàng</span>
                 <input
                   type="search"
@@ -2332,19 +2339,8 @@ export default function App() {
             <div className="quick-slots-layout">
               <article className="quick-slots-editor">
                 <div className="quick-slots-date-card">
-                  <label>
-                    Ngày áp dụng
-                    <input
-                      type="date"
-                      value={slotManagementDate}
-                      onChange={(event) =>
-                        setSlotManagementDate(event.target.value)
-                      }
-                      required
-                    />
-                  </label>
                   <p className="quick-slots-helper">
-                    Chọn ngày, thêm khung giờ và khách ở site công khai sẽ nhìn
+                    Thêm khung giờ và khách ở site công khai sẽ nhìn
                     thấy đúng các lựa chọn này trong ngày tương ứng.
                   </p>
                 </div>
@@ -2353,7 +2349,7 @@ export default function App() {
                   <div className="panel-subhead">
                     <div>
                       <p className="panel-tag">Tạo mới</p>
-                      <h3>Thêm khung giờ cho {slotManagementDate}</h3>
+                      <h3>Thêm khung giờ cho {selectedDate}</h3>
                     </div>
                   </div>
 
@@ -2407,7 +2403,7 @@ export default function App() {
                 <div className="panel-subhead">
                   <div>
                     <p className="panel-tag">Danh sách theo ngày</p>
-                    <h3>{slotManagementDate}</h3>
+                    <h3>{selectedDate}</h3>
                   </div>
                 </div>
 
@@ -2476,16 +2472,6 @@ export default function App() {
             </section>
 
             <div className="management-toolbar">
-              <label className="history-filter">
-                <span>Ngày đặt</span>
-                <input
-                  type="date"
-                  value={transactionDateFilter}
-                  onChange={(event) =>
-                    setTransactionDateFilter(event.target.value)
-                  }
-                />
-              </label>
               <label className="history-filter">
                 <span>Trạng thái</span>
                 <select
@@ -2904,18 +2890,6 @@ export default function App() {
                 </div>
               </div>
 
-              <div style={{ marginBottom: 20 }}>
-                <input
-                  type="date"
-                  value={coordinationDate}
-                  onChange={(e) => {
-                    setCoordinationDate(e.target.value);
-                    void handleLoadBookingSlots(e.target.value);
-                  }}
-                  style={{ fontSize: 15, padding: "8px 12px" }}
-                />
-              </div>
-
               {isSlotsLoading ? (
                 <p className="empty-state">Đang tải...</p>
               ) : bookingSlots.filter((slot) => slot.existingSessionId === null || sessions.find((s) => s.id === slot.existingSessionId)?.status !== "ENDED").length > 0 ? (
@@ -2976,12 +2950,12 @@ export default function App() {
                 </div>
               ) : (
                 <p className="empty-state">
-                  Không có booking nào cho ngày {coordinationDate}.
+                  Không có booking nào cho ngày {selectedDate}.
                 </p>
               )}
 
               {sessions.filter((s) => {
-                        if (s.date === coordinationDate || s.status === "ENDED") return false;
+                        if (s.date === selectedDate || s.status === "ENDED") return false;
                         const end = new Date(`${s.date}T${s.endTime}`);
                         return end > new Date();
                       }).length > 0 ? (
@@ -2989,7 +2963,7 @@ export default function App() {
                   <p className="panel-tag" style={{ marginBottom: 8 }}>Buổi chơi ngày khác</p>
                   <div className="schedule-list">
                     {sessions
-                      .filter((s) => s.date !== coordinationDate && s.status !== "ENDED")
+                      .filter((s) => s.date !== selectedDate && s.status !== "ENDED")
                       .map((session) => (
                         <article key={session.id} className="booking-card">
                           <div className="booking-card-top">
@@ -3428,7 +3402,7 @@ export default function App() {
           >
             <div className="panel-head modal-head-sticky">
               <div>
-                <h2 id="transaction-modal-title">{`Giao dịch cọc - ${transactionDateFilter}`}</h2>
+                <h2 id="transaction-modal-title">{`Giao dịch cọc - ${selectedDate}`}</h2>
               </div>
               <button
                 type="button"
@@ -3565,7 +3539,7 @@ export default function App() {
           >
             <div className="panel-head modal-head-sticky">
               <div>
-                <h2 id="queue-modal-title">{`Danh sách vợt thủ - ${historyDate}`}</h2>
+                <h2 id="queue-modal-title">{`Danh sách vợt thủ - ${selectedDate}`}</h2>
               </div>
               <button
                 type="button"

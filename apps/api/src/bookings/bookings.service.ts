@@ -473,12 +473,12 @@ export class BookingsService {
 
   private getDepositExpirySeconds() {
     const configuredSeconds = Number(
-      this.configService.get<string>("PAYMENT_EXPIRY_SECONDS", "120"),
+      this.configService.get<string>("PAYMENT_EXPIRY_SECONDS", "300"),
     );
 
     return Number.isFinite(configuredSeconds) && configuredSeconds > 0
       ? configuredSeconds
-      : 120;
+      : 300;
   }
 
   private getDepositExpiryIso() {
