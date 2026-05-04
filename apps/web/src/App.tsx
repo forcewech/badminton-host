@@ -406,6 +406,7 @@ export default function App() {
   const [suggestionOptionIndex, setSuggestionOptionIndex] = useState<
     Record<number, number>
   >({});
+  const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(true);
   const [bookingSlots, setBookingSlots] = useState<BookingSlot[]>([]);
   const [isSlotsLoading, setIsSlotsLoading] = useState(false);
   const [slotCourtCounts, setSlotCourtCounts] = useState<Record<string, number>>({});
@@ -3251,62 +3252,84 @@ export default function App() {
                       </div>
 
                       {/* Suggestions */}
-                      {activeSession.suggestions.length > 0 ? (
-                        <div style={{ background: "var(--color-background-primary, #fff)", borderRadius: 12, border: "0.5px solid var(--color-border-tertiary, #e5e7eb)", padding: "14px 16px", marginBottom: 12 }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                      <div style={{ background: "var(--color-background-primary, #fff)", borderRadius: 12, border: "0.5px solid var(--color-border-tertiary, #e5e7eb)", padding: "14px 16px", marginBottom: 12 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: isSuggestionsOpen ? 10 : 0 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                             <span style={{ fontWeight: 500, fontSize: 16 }}>Lượt tiếp theo</span>
                             <span style={{ fontSize: 13, background: "#eeedfe", color: "#3c3489", padding: "3px 8px", borderRadius: 999, fontWeight: 500 }}>Gợi ý từ AI ghép cặp</span>
                           </div>
-                          {activeSession.suggestions.map((sugg) => {
-                            const optIdx = suggestionOptionIndex[sugg.court] ?? 0;
-                            const opt = sugg.options[optIdx] ?? sugg.options[0];
-                            if (!opt) return null;
-                            return (
-                              <div key={sugg.court} style={{ border: "0.5px solid var(--color-border-tertiary, #e5e7eb)", borderRadius: 8, padding: "10px 12px", marginBottom: 8 }}>
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                                  <span style={{ fontSize: 14, color: "#6b7280", fontWeight: 500 }}>SÂN {sugg.court} →</span>
-                                  <div style={{ display: "flex", gap: 6 }}>
-                                    {sugg.options.length > 1 ? (
-                                      <button type="button" style={{ fontSize: 13, padding: "5px 12px" }}
-                                        onClick={() => handleCycleSuggestion(sugg.court, sugg.options.length)}>Đổi cặp</button>
-                                    ) : null}
-                                    <button type="button" className="primary-button" style={{ fontSize: 13, padding: "5px 12px" }}
-                                      onClick={() => void handleConfirmMatch(sugg.court, opt)}>Xác nhận</button>
-                                  </div>
-                                </div>
-                                <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 15, flexWrap: "wrap" }}>
-                                  <span>
-                                    <strong style={{ fontWeight: 500 }}>{opt.teamA[0]?.name}</strong>{" "}
-                                    <span style={{ color: "#9ca3af", fontSize: 13 }}>{getSessionSkillLabel(opt.teamA[0]?.skillLevel ?? "TB")}</span>
-                                    {" "}&amp;{" "}
-                                    <strong style={{ fontWeight: 500 }}>{opt.teamA[1]?.name}</strong>{" "}
-                                    <span style={{ color: "#9ca3af", fontSize: 13 }}>{getSessionSkillLabel(opt.teamA[1]?.skillLevel ?? "TB")}</span>
-                                  </span>
-                                  <span style={{ color: "#9ca3af", fontSize: 13 }}>vs</span>
-                                  <span>
-                                    <strong style={{ fontWeight: 500 }}>{opt.teamB[0]?.name}</strong>{" "}
-                                    <span style={{ color: "#9ca3af", fontSize: 13 }}>{getSessionSkillLabel(opt.teamB[0]?.skillLevel ?? "TB")}</span>
-                                    {" "}&amp;{" "}
-                                    <strong style={{ fontWeight: 500 }}>{opt.teamB[1]?.name}</strong>{" "}
-                                    <span style={{ color: "#9ca3af", fontSize: 13 }}>{getSessionSkillLabel(opt.teamB[1]?.skillLevel ?? "TB")}</span>
-                                  </span>
-                                </div>
-                                {opt.reasons.length > 0 ? (
-                                  <div style={{ display: "flex", gap: 12, marginTop: 8, fontSize: 12, flexWrap: "wrap" }}>
-                                    {opt.reasons.map((r, ri) => (
-                                      <span key={ri} style={{ color: r.type === "success" ? "#0f6e56" : r.type === "warning" ? "#b45309" : "#6b7280" }}>
-                                        {r.type === "success" ? "✓ " : r.type === "warning" ? "⚠ " : "· "}{r.text}
-                                      </span>
-                                    ))}
-                                  </div>
-                                ) : null}
-                              </div>
-                            );
-                          })}
+                          <button
+                            type="button"
+                            onClick={() => setIsSuggestionsOpen((v) => !v)}
+                            style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, color: "#6b7280", background: "var(--color-background-secondary, #f9fafb)", border: "0.5px solid var(--color-border-tertiary, #e5e7eb)", borderRadius: 8, padding: "4px 10px", cursor: "pointer" }}
+                          >
+                            {isSuggestionsOpen ? (
+                              <>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 15l-6-6-6 6"/></svg>
+                                Ẩn
+                              </>
+                            ) : (
+                              <>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M6 9l6 6 6-6"/></svg>
+                                {activeSession.suggestions.length > 0 ? `Hiện (${activeSession.suggestions.length})` : "Hiện"}
+                              </>
+                            )}
+                          </button>
                         </div>
-                      ) : null}
+                        {isSuggestionsOpen && (
+                          activeSession.suggestions.length === 0 ? (
+                            <p style={{ margin: 0, fontSize: 14, color: "#9ca3af" }}>Chưa có gợi ý — đang chờ sân trống hoặc đủ người.</p>
+                          ) : (
+                            activeSession.suggestions.map((sugg) => {
+                              const optIdx = suggestionOptionIndex[sugg.court] ?? 0;
+                              const opt = sugg.options[optIdx] ?? sugg.options[0];
+                              if (!opt) return null;
+                              return (
+                                <div key={sugg.court} style={{ border: "0.5px solid var(--color-border-tertiary, #e5e7eb)", borderRadius: 8, padding: "10px 12px", marginBottom: 8 }}>
+                                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                                    <span style={{ fontSize: 14, color: "#6b7280", fontWeight: 500 }}>SÂN {sugg.court} →</span>
+                                    <div style={{ display: "flex", gap: 6 }}>
+                                      {sugg.options.length > 1 ? (
+                                        <button type="button" style={{ fontSize: 13, padding: "5px 12px" }}
+                                          onClick={() => handleCycleSuggestion(sugg.court, sugg.options.length)}>Đổi cặp</button>
+                                      ) : null}
+                                      <button type="button" className="primary-button" style={{ fontSize: 13, padding: "5px 12px" }}
+                                        onClick={() => void handleConfirmMatch(sugg.court, opt)}>Xác nhận</button>
+                                    </div>
+                                  </div>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 15, flexWrap: "wrap" }}>
+                                    <span>
+                                      <strong style={{ fontWeight: 500 }}>{opt.teamA[0]?.name}</strong>{" "}
+                                      <span style={{ color: "#9ca3af", fontSize: 13 }}>{getSessionSkillLabel(opt.teamA[0]?.skillLevel ?? "TB")}</span>
+                                      {" "}&amp;{" "}
+                                      <strong style={{ fontWeight: 500 }}>{opt.teamA[1]?.name}</strong>{" "}
+                                      <span style={{ color: "#9ca3af", fontSize: 13 }}>{getSessionSkillLabel(opt.teamA[1]?.skillLevel ?? "TB")}</span>
+                                    </span>
+                                    <span style={{ color: "#9ca3af", fontSize: 13 }}>vs</span>
+                                    <span>
+                                      <strong style={{ fontWeight: 500 }}>{opt.teamB[0]?.name}</strong>{" "}
+                                      <span style={{ color: "#9ca3af", fontSize: 13 }}>{getSessionSkillLabel(opt.teamB[0]?.skillLevel ?? "TB")}</span>
+                                      {" "}&amp;{" "}
+                                      <strong style={{ fontWeight: 500 }}>{opt.teamB[1]?.name}</strong>{" "}
+                                      <span style={{ color: "#9ca3af", fontSize: 13 }}>{getSessionSkillLabel(opt.teamB[1]?.skillLevel ?? "TB")}</span>
+                                    </span>
+                                  </div>
+                                  {opt.reasons.length > 0 ? (
+                                    <div style={{ display: "flex", gap: 12, marginTop: 8, fontSize: 12, flexWrap: "wrap" }}>
+                                      {opt.reasons.map((r, ri) => (
+                                        <span key={ri} style={{ color: r.type === "success" ? "#0f6e56" : r.type === "warning" ? "#b45309" : "#6b7280" }}>
+                                          {r.type === "success" ? "✓ " : r.type === "warning" ? "⚠ " : "· "}{r.text}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  ) : null}
+                                </div>
+                              );
+                            })
+                          )
+                        )}
+                      </div>
 
-                      {/* Waiting list */}
                       {waitingPlayers.length > 0 ? (
                         <div style={{ background: "var(--color-background-primary, #fff)", borderRadius: 12, border: "0.5px solid var(--color-border-tertiary, #e5e7eb)", padding: "14px 16px" }}>
                           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
