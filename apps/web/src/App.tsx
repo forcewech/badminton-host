@@ -3349,7 +3349,7 @@ export default function App() {
                       </p>
                     ) : null}
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))", gap: 8 }}>
-                      {activeSession.players.map((p) => {
+                      {[...activeSession.players].sort((a, b) => a.id - b.id).map((p) => {
                         const c = getAvatarColor(p.name);
                         return (
                           <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 8, background: p.isCheckedIn ? "var(--color-background-success, #f0fdf4)" : "var(--color-background-secondary, #f9fafb)" }}>
@@ -3408,7 +3408,7 @@ export default function App() {
                     </form>
                   ) : null}
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 8 }}>
-                    {activeSession.players.map((p) => {
+                    {[...activeSession.players].sort((a, b) => a.id - b.id).map((p) => {
                       const c = getAvatarColor(p.name);
                       return (
                         <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 8, background: p.isCheckedIn ? "var(--color-background-success, #f0fdf4)" : "var(--color-background-secondary, #f9fafb)", border: p.isCurrentlyPlaying ? "1.5px solid #16a34a" : "0.5px solid transparent" }}>

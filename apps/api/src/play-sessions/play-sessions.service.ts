@@ -30,11 +30,15 @@ type PairingSuggestion = {
 };
 
 const SKILL_VALUE: Record<string, number> = {
-  TB: 1,
-  TB_PLUS: 2,
-  KHA: 3,
-  GIOI: 4,
+  Y: 0,
+  TB_MINUS: 1,
+  TB: 2,
+  TB_PLUS: 3,
+  KHA: 4,
+  TUYEN: 5,
 };
+
+const skillVal = (level: string) => SKILL_VALUE[level] ?? 2;
 
 @Injectable()
 export class PlaySessionsService {
@@ -585,12 +589,12 @@ export class PlaySessionsService {
         const teamA = ai.map((i) => four[i]);
         const teamB = bi.map((i) => four[i]);
         const avgA =
-          (SKILL_VALUE[teamA[0].skillLevel] +
-            SKILL_VALUE[teamA[1].skillLevel]) /
+          (skillVal(teamA[0].skillLevel) +
+            skillVal(teamA[1].skillLevel)) /
           2;
         const avgB =
-          (SKILL_VALUE[teamB[0].skillLevel] +
-            SKILL_VALUE[teamB[1].skillLevel]) /
+          (skillVal(teamB[0].skillLevel) +
+            skillVal(teamB[1].skillLevel)) /
           2;
         const skillDiff = Math.abs(avgA - avgB);
         const reasons = this.buildReasons(four, skillDiff, now, sessionStart);
@@ -617,12 +621,12 @@ export class PlaySessionsService {
     let best = Infinity;
     for (const [ai, bi] of splits) {
       const avgA =
-        (SKILL_VALUE[four[ai[0]].skillLevel] +
-          SKILL_VALUE[four[ai[1]].skillLevel]) /
+        (skillVal(four[ai[0]].skillLevel) +
+          skillVal(four[ai[1]].skillLevel)) /
         2;
       const avgB =
-        (SKILL_VALUE[four[bi[0]].skillLevel] +
-          SKILL_VALUE[four[bi[1]].skillLevel]) /
+        (skillVal(four[bi[0]].skillLevel) +
+          skillVal(four[bi[1]].skillLevel)) /
         2;
       const d = Math.abs(avgA - avgB);
       if (d < best) best = d;
