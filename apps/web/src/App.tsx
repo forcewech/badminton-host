@@ -1,5 +1,5 @@
 ﻿import { FormEvent, useEffect, useState } from "react";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import { Toaster, toast } from "react-hot-toast";
 import { api, setApiAccessToken } from "./api";
 import type {
@@ -995,27 +995,25 @@ export default function App() {
 
   async function handleOpenSlotCoordination(slot: BookingSlot) {
     try {
-      let session: PlaySession;
-      if (slot.existingSessionId !== null) {
-        session = await api.getSession(slot.existingSessionId);
-      } else {
-        const slotKey = `${slot.startTime}|${slot.endTime}`;
-        const courtCount = slotCourtCounts[slotKey] ?? Math.max(slot.courts.length, 1);
-        session = await api.createSessionFromSlot(
-          selectedDate,
-          slot.startTime,
-          slot.endTime,
-          courtCount,
-        );
-        setBookingSlots((prev) =>
-          prev.map((s) =>
-            s.startTime === slot.startTime && s.endTime === slot.endTime
-              ? { ...s, existingSessionId: session.id }
-              : s,
-          ),
-        );
-        setSessions((prev) => [session, ...prev]);
-      }
+      const slotKey = `${slot.startTime}|${slot.endTime}`;
+      const courtCount = slotCourtCounts[slotKey] ?? Math.max(slot.courts.length, 1);
+      const session = await api.createSessionFromSlot(
+        selectedDate,
+        slot.startTime,
+        slot.endTime,
+        courtCount,
+      );
+      setBookingSlots((prev) =>
+        prev.map((s) =>
+          s.startTime === slot.startTime && s.endTime === slot.endTime
+            ? { ...s, existingSessionId: session.id }
+            : s,
+        ),
+      );
+      setSessions((prev) => {
+        const exists = prev.some((s) => s.id === session.id);
+        return exists ? prev.map((s) => (s.id === session.id ? session : s)) : [session, ...prev];
+      });
       handleOpenSession(session);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Không thể mở điều phối");
@@ -1354,7 +1352,7 @@ export default function App() {
     })
     .reverse();
 
-  function exportHistoryToExcel() {
+  async function exportHistoryToExcel() {
     const exportBookings = sortBookingsStable(
       bookings
         .filter((booking) => booking.bookingDate === selectedDate)
@@ -1377,29 +1375,75 @@ export default function App() {
         }),
     );
 
-    const rows = exportBookings.map((booking) => ({
-      "Ngày": booking.bookingDate,
-      "Giờ bắt đầu": booking.startTime,
-      "Giờ kết thúc": booking.endTime,
-      "Tên khách hàng": booking.customerName,
-      "Giới tính": getGenderLabel(booking.gender),
-      "Trình độ": getSkillLevelLabel(booking.skillLevel),
-      "Số điện thoại": booking.customerPhone,
-      "Số tiền cọc": booking.depositAmount,
-      "Nội dung chuyển khoản": booking.depositReference ?? "",
-      "Đã thanh toán cọc": booking.depositPaid ? "Có" : "Không",
-      "Đã chuyển khoản": booking.fullPaymentTransferred ? "Có" : "Không",
-      "Trạng thái": booking.status,
-      "Ghi chú": booking.notes,
-    }));
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("QuảnLýSân");
 
-    const worksheet = XLSX.utils.json_to_sheet(rows);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "QuảnLýSân");
-    XLSX.writeFile(
-      workbook,
-      `${selectedDate}-quản-lý.xlsx`,
-    );
+    worksheet.columns = [
+      { header: "Ngày", key: "date", width: 13 },
+      { header: "Giờ bắt đầu", key: "startTime", width: 12 },
+      { header: "Giờ kết thúc", key: "endTime", width: 12 },
+      { header: "Tên khách hàng", key: "name", width: 22 },
+      { header: "Giới tính", key: "gender", width: 10 },
+      { header: "Trình độ", key: "skill", width: 10 },
+      { header: "Số điện thoại", key: "phone", width: 15 },
+      { header: "Số tiền cọc", key: "deposit", width: 13 },
+      { header: "Nội dung CK", key: "ref", width: 22 },
+      { header: "Đã TT cọc", key: "depositPaid", width: 12 },
+      { header: "Đã TT đủ", key: "fullPaid", width: 14 },
+      { header: "Trạng thái", key: "status", width: 14 },
+      { header: "Check-in", key: "checkin", width: 14 },
+      { header: "Ghi chú", key: "notes", width: 28 },
+    ];
+
+    worksheet.autoFilter = "A1:N1";
+
+    const headerRow = worksheet.getRow(1);
+    headerRow.font = { bold: true };
+    headerRow.eachCell((cell) => {
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9D9D9" } };
+      cell.border = {
+        bottom: { style: "thin", color: { argb: "FF999999" } },
+      };
+    });
+
+    for (const booking of exportBookings) {
+      const isCheckedIn = booking.status === "CHECKED_IN" || booking.status === "COMPLETED";
+      const isFullPaid = booking.fullPaymentTransferred;
+      const row = worksheet.addRow({
+        date: booking.bookingDate,
+        startTime: booking.startTime,
+        endTime: booking.endTime,
+        name: booking.customerName,
+        gender: getGenderLabel(booking.gender),
+        skill: getSkillLevelLabel(booking.skillLevel),
+        phone: booking.customerPhone,
+        deposit: booking.depositAmount,
+        ref: booking.depositReference ?? "",
+        depositPaid: booking.depositPaid ? "Có" : "Không",
+        fullPaid: isFullPaid ? "✓ Đã TT đủ" : "",
+        status: booking.status,
+        checkin: isCheckedIn ? "✓ Đã check-in" : "",
+        notes: booking.notes,
+      });
+
+      const fillColor = isFullPaid ? "FFFF9999" : isCheckedIn ? "FFFFFF00" : null;
+      if (fillColor) {
+        row.eachCell({ includeEmpty: true }, (cell) => {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: fillColor } };
+        });
+      }
+    }
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${selectedDate}-quản-lý.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   // ── Public TV board mode (no auth required) ──────────────────────────────────
@@ -2242,7 +2286,7 @@ export default function App() {
               <button
                 type="button"
                 className="success-button export-button"
-                onClick={exportHistoryToExcel}
+                onClick={() => void exportHistoryToExcel()}
               >
                 Xuất Excel
               </button>

@@ -418,11 +418,11 @@ export class BookingsService {
       where: { bookingId: booking.id },
     });
 
-    if (players.length === 0) {
-      // Nếu booking bị huỷ thì không cần thêm vào session
-      if (booking.status === BookingStatus.CANCELLED) return;
+    const shouldBeInSession = booking.status !== BookingStatus.CANCELLED && booking.depositPaid;
 
-      // Tìm session của khung giờ này để thêm player nếu session đã tồn tại
+    if (players.length === 0) {
+      if (!shouldBeInSession) return;
+
       const session = await this.sessionRepository.findOne({
         where: {
           date: booking.bookingDate,
@@ -447,7 +447,7 @@ export class BookingsService {
     }
 
     for (const player of players) {
-      if (booking.status === BookingStatus.CANCELLED) {
+      if (!shouldBeInSession) {
         await this.sessionPlayerRepository.remove(player);
       } else {
         player.name = booking.customerName;

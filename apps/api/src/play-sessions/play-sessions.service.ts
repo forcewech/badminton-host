@@ -139,6 +139,7 @@ export class PlaySessionsService {
         .andWhere('b.startTime = :startTime', { startTime })
         .andWhere('b.endTime = :endTime', { endTime })
         .andWhere("b.status != 'CANCELLED'")
+        .andWhere('b.depositPaid = true')
         .getCount();
       const hasLegacyPlayers = existing.players.some((player) => player.bookingId == null);
       const bookingLinkedCount = existing.players.filter((p) => p.bookingId != null).length;
@@ -155,6 +156,7 @@ export class PlaySessionsService {
       .andWhere('b.startTime = :startTime', { startTime })
       .andWhere('b.endTime = :endTime', { endTime })
       .andWhere("b.status != 'CANCELLED'")
+      .andWhere('b.depositPaid = true')
       .orderBy('b.id', 'ASC')
       .getMany();
 
@@ -319,6 +321,7 @@ export class PlaySessionsService {
       .andWhere('b.startTime = :startTime', { startTime })
       .andWhere('b.endTime = :endTime', { endTime })
       .andWhere("b.status != 'CANCELLED'")
+      .andWhere('b.depositPaid = true')
       .orderBy('b.id', 'ASC')
       .getMany();
 
