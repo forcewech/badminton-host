@@ -407,6 +407,7 @@ export default function App() {
     Record<number, number>
   >({});
   const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(true);
+  const [isWaitingOpen, setIsWaitingOpen] = useState(true);
   const [bookingSlots, setBookingSlots] = useState<BookingSlot[]>([]);
   const [isSlotsLoading, setIsSlotsLoading] = useState(false);
   const [slotCourtCounts, setSlotCourtCounts] = useState<Record<string, number>>({});
@@ -3256,7 +3257,6 @@ export default function App() {
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: isSuggestionsOpen ? 10 : 0 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                             <span style={{ fontWeight: 500, fontSize: 16 }}>Lượt tiếp theo</span>
-                            <span style={{ fontSize: 13, background: "#eeedfe", color: "#3c3489", padding: "3px 8px", borderRadius: 999, fontWeight: 500 }}>Gợi ý từ AI ghép cặp</span>
                           </div>
                           <button
                             type="button"
@@ -3330,35 +3330,58 @@ export default function App() {
                         )}
                       </div>
 
-                      {waitingPlayers.length > 0 ? (
-                        <div style={{ background: "var(--color-background-primary, #fff)", borderRadius: 12, border: "0.5px solid var(--color-border-tertiary, #e5e7eb)", padding: "14px 16px" }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
+                      <div style={{ background: "var(--color-background-primary, #fff)", borderRadius: 12, border: "0.5px solid var(--color-border-tertiary, #e5e7eb)", padding: "14px 16px" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: isWaitingOpen ? 10 : 0 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                             <span style={{ fontWeight: 500, fontSize: 16 }}>Đang chờ</span>
-                            <span style={{ fontSize: 14, color: "#6b7280" }}>{waitingPlayers.length} người · sắp xếp theo thời gian chờ</span>
+                            <span style={{ fontSize: 13, color: "#6b7280" }}>{waitingPlayers.length} người</span>
                           </div>
-                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 8 }}>
-                            {waitingPlayers.map((p) => {
-                              const c = getAvatarColor(p.name);
-                              const base = new Date(activeSession.createdAt).getTime();
-                              const waitMs = Date.now() - (p.lastMatchEndedAt ? new Date(p.lastMatchEndedAt).getTime() : base);
-                              const waitMin = Math.floor(waitMs / 60_000);
-                              return (
-                                <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, background: "var(--color-background-secondary, #f9fafb)" }}>
-                                  <div style={{ width: 30, height: 30, borderRadius: "50%", background: c.bg, color: c.fg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 500, flexShrink: 0 }}>
-                                    {getPlayerInitials(p.name)}
-                                  </div>
-                                  <div style={{ fontSize: 14, minWidth: 0 }}>
-                                    <div style={{ fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
-                                    <div style={{ fontSize: 12, color: waitMin >= 10 ? "#b45309" : "#6b7280" }}>
-                                      {waitMin > 0 ? `${waitMin} phút` : "Vừa xong"}
+                          <button
+                            type="button"
+                            onClick={() => setIsWaitingOpen((v) => !v)}
+                            style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, color: "#6b7280", background: "var(--color-background-secondary, #f9fafb)", border: "0.5px solid var(--color-border-tertiary, #e5e7eb)", borderRadius: 8, padding: "4px 10px", cursor: "pointer" }}
+                          >
+                            {isWaitingOpen ? (
+                              <>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 15l-6-6-6 6"/></svg>
+                                Ẩn
+                              </>
+                            ) : (
+                              <>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M6 9l6 6 6-6"/></svg>
+                                Hiện
+                              </>
+                            )}
+                          </button>
+                        </div>
+                        {isWaitingOpen && (
+                          waitingPlayers.length === 0 ? (
+                            <p style={{ margin: 0, fontSize: 14, color: "#9ca3af" }}>Không có ai đang chờ.</p>
+                          ) : (
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 8 }}>
+                              {waitingPlayers.map((p) => {
+                                const c = getAvatarColor(p.name);
+                                const base = new Date(activeSession.createdAt).getTime();
+                                const waitMs = Date.now() - (p.lastMatchEndedAt ? new Date(p.lastMatchEndedAt).getTime() : base);
+                                const waitMin = Math.floor(waitMs / 60_000);
+                                return (
+                                  <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, background: "var(--color-background-secondary, #f9fafb)" }}>
+                                    <div style={{ width: 30, height: 30, borderRadius: "50%", background: c.bg, color: c.fg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 500, flexShrink: 0 }}>
+                                      {getPlayerInitials(p.name)}
+                                    </div>
+                                    <div style={{ fontSize: 14, minWidth: 0 }}>
+                                      <div style={{ fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
+                                      <div style={{ fontSize: 12, color: waitMin >= 10 ? "#b45309" : "#6b7280" }}>
+                                        {waitMin > 0 ? `${waitMin} phút` : "Vừa xong"}
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ) : null}
+                                );
+                              })}
+                            </div>
+                          )
+                        )}
+                      </div>
                     </>
                   );
                 })() : null}
