@@ -22,6 +22,7 @@ import { PlaySession } from './play-sessions/entities/play-session.entity';
 import { PlaySessionPlayer } from './play-sessions/entities/play-session-player.entity';
 import { PlaySessionMatch } from './play-sessions/entities/play-session-match.entity';
 import { PlaySessionsModule } from './play-sessions/play-sessions.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -64,6 +65,7 @@ import { PlaySessionsModule } from './play-sessions/play-sessions.module';
     QuickSlotsModule,
     SettingsModule,
     PlaySessionsModule,
+    AdminModule,
     SeedModule,
   ],
   providers: [

@@ -350,6 +350,8 @@ export default function App() {
   const [slotFilter, setSlotFilter] = useState<string>("all");
   const [isQueueModalOpen, setIsQueueModalOpen] = useState(false);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const [detailBooking, setDetailBooking] = useState<Booking | null>(null);
   const [isEditingDetail, setIsEditingDetail] = useState(false);
   const [editDetailForm, setEditDetailForm] = useState<{
@@ -887,6 +889,20 @@ export default function App() {
     }
   }
 
+  async function handleResetPastData() {
+    setIsResetting(true);
+    try {
+      const result = await api.resetPastData();
+      await loadData();
+      setIsResetModalOpen(false);
+      toast.success(`Đã xóa ${result.deleted.bookings} booking, ${result.deleted.sessions} buổi chơi, ${result.deleted.quickSlots} khung giờ quá khứ.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Xóa dữ liệu thất bại");
+    } finally {
+      setIsResetting(false);
+    }
+  }
+
   async function handleFullPayment(id: number) {
     try {
       await api.confirmFullPayment(id);
@@ -1349,8 +1365,7 @@ export default function App() {
     .filter((b) => {
       if (transactionFilter === "all") return true;
       return getTransactionStatus(b) === transactionFilter;
-    })
-    .reverse();
+    });
 
   async function exportHistoryToExcel() {
     const exportBookings = sortBookingsStable(
@@ -2228,6 +2243,15 @@ export default function App() {
                 <p className="panel-tag">Quản lý sân</p>
                 <h2>Danh sách vợt thủ</h2>
               </div>
+              <button
+                type="button"
+                className="ghost-button"
+                style={{ color: "#b91c1c", background: "#fff1f2", fontSize: 13, padding: "6px 14px", display: "flex", alignItems: "center", gap: 6 }}
+                onClick={() => setIsResetModalOpen(true)}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                Xóa dữ liệu cũ
+              </button>
             </div>
             <div className="management-toolbar">
               <label className="history-filter">
@@ -2327,6 +2351,58 @@ export default function App() {
           </section>
         ) : null}
       </main>
+
+      {isResetModalOpen ? (
+        <div className="modal-backdrop" style={{ zIndex: 60 }} onClick={() => !isResetting && setIsResetModalOpen(false)}>
+          <div className="modal-card" style={{ maxWidth: 400, padding: 0, overflow: "hidden" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ background: "linear-gradient(135deg, #fef2f2 0%, #fff1f2 100%)", padding: "28px 28px 20px", textAlign: "center", borderBottom: "1px solid #fecaca" }}>
+              <div style={{ width: 52, height: 52, borderRadius: "50%", background: "#fee2e2", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                </svg>
+              </div>
+              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#991b1b" }}>Xóa dữ liệu quá khứ</h3>
+              <p style={{ margin: "8px 0 0", fontSize: 13, color: "#b91c1c", opacity: 0.8 }}>Hành động này không thể hoàn tác</p>
+            </div>
+            <div style={{ padding: "20px 28px 24px" }}>
+              <p style={{ margin: "0 0 16px", fontSize: 14, color: "#374151", lineHeight: 1.6 }}>
+                Toàn bộ dữ liệu các ngày <strong>trước hôm nay</strong> sẽ bị xóa vĩnh viễn:
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 24 }}>
+                {[
+                  { icon: "📋", label: "Tất cả booking" },
+                  { icon: "🕐", label: "Tất cả khung giờ" },
+                  { icon: "🏸", label: "Buổi chơi, trận đấu và người chơi" },
+                ].map(({ icon, label }) => (
+                  <div key={label} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", background: "#f9fafb", borderRadius: 10, fontSize: 13, color: "#374151" }}>
+                    <span style={{ fontSize: 15 }}>{icon}</span>
+                    {label}
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button
+                  type="button"
+                  className="ghost-button"
+                  style={{ flex: 1 }}
+                  onClick={() => setIsResetModalOpen(false)}
+                  disabled={isResetting}
+                >
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  style={{ flex: 1, border: "none", borderRadius: 999, padding: "10px 20px", fontWeight: 600, fontSize: 14, cursor: isResetting ? "not-allowed" : "pointer", background: isResetting ? "#fca5a5" : "#dc2626", color: "white", transition: "background 0.15s, transform 0.15s", transform: "none" }}
+                  onClick={() => void handleResetPastData()}
+                  disabled={isResetting}
+                >
+                  {isResetting ? "Đang xóa..." : "Xóa vĩnh viễn"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {activeSectionTab === "quick_slots" ? (
         <section className="court-inventory-section">

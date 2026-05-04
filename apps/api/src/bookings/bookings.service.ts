@@ -42,8 +42,7 @@ export class BookingsService {
   findAll() {
     return this.bookingsRepository.find({
       order: {
-        bookingDate: "DESC",
-        startTime: "ASC",
+        createdAt: "DESC",
       },
     });
   }

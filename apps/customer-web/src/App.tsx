@@ -46,6 +46,21 @@ function formatQuickSlotLabel(startTime: string, endTime: string) {
   return `${startTime} - ${endTime}`;
 }
 
+function formatDateVietnamese(dateStr: string) {
+  if (!dateStr) return "";
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  const dayNames = ["Chủ nhật", "Thứ hai", "Thứ ba", "Thứ tư", "Thứ năm", "Thứ sáu", "Thứ bảy"];
+  return `${dayNames[date.getDay()]}, ngày ${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}/${year}`;
+}
+
+function getDateRelation(dateStr: string): "past" | "today" | "future" {
+  const today = getLocalDateInputValue();
+  if (dateStr < today) return "past";
+  if (dateStr === today) return "today";
+  return "future";
+}
+
 function getDisplayPhotoUrl(photoUrl?: string | null) {
   if (!photoUrl) {
     return "";
@@ -365,6 +380,14 @@ export default function App() {
               </div>
 
               <form className="customer-form" onSubmit={handleSubmit}>
+                <div className="date-attention-banner">
+                  <span className="date-attention-icon" aria-hidden="true">📅</span>
+                  <div>
+                    <strong>Chú ý: Chọn đúng ngày bạn muốn đến chơi</strong>
+                    <p>Nhiều bạn hay chọn nhầm ngày. Vui lòng kiểm tra kỹ ô <em>Ngày đặt</em> trước khi gửi.</p>
+                  </div>
+                </div>
+
                 <div className="form-grid">
                   <label>
                     Ghi đầy đủ họ tên
@@ -420,6 +443,35 @@ export default function App() {
                     />
                   </label>
                 </div>
+
+                {form.bookingDate ? (() => {
+                  const relation = getDateRelation(form.bookingDate);
+                  return (
+                    <div className={`date-confirm-notice date-confirm-${relation}`}>
+                      <span className="date-confirm-icon" aria-hidden="true">
+                        {relation === "past" ? "⚠️" : relation === "today" ? "🗓️" : "✅"}
+                      </span>
+                      <div className="date-confirm-body">
+                        <strong className="date-confirm-label">
+                          {relation === "past"
+                            ? "Ngày đã qua — kiểm tra lại trước khi gửi"
+                            : relation === "today"
+                              ? "Bạn đang đặt cho hôm nay"
+                              : "Ngày đặt đã được chọn"}
+                        </strong>
+                        <p className="date-confirm-value">
+                          {formatDateVietnamese(form.bookingDate)}
+                          <span className="date-confirm-format-badge">ngày/tháng/năm</span>
+                        </p>
+                        {relation === "past" && (
+                          <p className="date-confirm-hint">
+                            Nếu đây không phải ngày bạn muốn chơi, hãy chỉnh lại ô <em>Ngày đặt</em> phía trên.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })() : null}
 
                 <div className="skill-section">
                   <div className="skill-section-header">

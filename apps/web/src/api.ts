@@ -210,4 +210,9 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify(payload),
     }),
+  resetPastData: () =>
+    request<{ message: string; deleted: { sessions: number; bookings: number; quickSlots: number } }>(
+      '/admin/reset-past',
+      { method: 'DELETE' },
+    ),
 };
