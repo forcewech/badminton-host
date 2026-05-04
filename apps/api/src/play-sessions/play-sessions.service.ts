@@ -11,6 +11,7 @@ import { PlaySession } from './entities/play-session.entity';
 import { PlaySessionPlayer } from './entities/play-session-player.entity';
 import { PlaySessionMatch } from './entities/play-session-match.entity';
 import { Booking } from '../bookings/entities/booking.entity';
+import { BookingStatus } from '../common/enums/booking-status.enum';
 import { CreateSessionDto } from './dto/create-session.dto';
 import { AddPlayerDto } from './dto/add-player.dto';
 import { StartMatchDto } from './dto/start-match.dto';
@@ -51,9 +52,11 @@ export class PlaySessionsService {
   ) {}
 
   private mapBookingSkillLevel(level: string): string {
-    if (level === 'ADVANCED') return 'GIOI';
+    // Legacy values from old 3-level system
+    if (level === 'ADVANCED') return 'TUYEN';
     if (level === 'INTERMEDIATE') return 'KHA';
-    return 'TB';
+    if (level === 'BEGINNER') return 'TB';
+    return level;
   }
 
   async findBookingSlots(date: string) {
@@ -62,6 +65,7 @@ export class PlaySessionsService {
       .leftJoinAndSelect('b.court', 'court')
       .where('b.bookingDate = :date', { date })
       .andWhere("b.status != 'CANCELLED'")
+      .andWhere('b.depositPaid = true')
       .getMany();
 
     const slotMap = new Map<string, {
@@ -284,6 +288,21 @@ export class PlaySessionsService {
     player.isCheckedIn = !player.isCheckedIn;
     player.checkedInAt = player.isCheckedIn ? new Date() : null;
     await this.playerRepo.save(player);
+
+    if (player.bookingId) {
+      const booking = await this.bookingRepo.findOneBy({ id: player.bookingId });
+      if (booking) {
+        if (player.isCheckedIn) {
+          booking.status = BookingStatus.CHECKED_IN;
+          booking.checkInAt = player.checkedInAt?.toISOString() ?? new Date().toISOString();
+        } else {
+          booking.status = BookingStatus.CONFIRMED;
+          booking.checkInAt = undefined;
+        }
+        await this.bookingRepo.save(booking);
+      }
+    }
+
     return this.findOne(sessionId);
   }
 

@@ -19,7 +19,6 @@ import type {
 
 const AUTH_STORAGE_KEY = "badminton-host-auth";
 
-type ToastKind = "success" | "info" | "warning" | "error";
 
 function getLocalDateInputValue() {
   const now = new Date();
@@ -31,9 +30,12 @@ const today = getLocalDateInputValue();
 
 const genderOptions: CustomerGender[] = ["MALE", "FEMALE", "OTHER"];
 const skillLevelOptions: SkillLevel[] = [
-  "BEGINNER",
-  "INTERMEDIATE",
-  "ADVANCED",
+  "Y",
+  "TB_MINUS",
+  "TB",
+  "TB_PLUS",
+  "KHA",
+  "TUYEN",
 ];
 
 const quickTimeSlots = [
@@ -89,7 +91,7 @@ const initialForm: CreateBookingPayload = {
   customerName: "",
   customerPhone: "",
   gender: "OTHER",
-  skillLevel: "BEGINNER",
+  skillLevel: "TB",
   bookingDate: today,
   startTime: "18:00",
   endTime: "19:00",
@@ -105,12 +107,18 @@ function formatQuickSlotLabel(startTime: string, endTime: string) {
 
 function getSkillLevelLabel(skillLevel: SkillLevel) {
   switch (skillLevel) {
-    case "BEGINNER":
-      return "Mới bắt đầu";
-    case "INTERMEDIATE":
-      return "Trung bình";
-    case "ADVANCED":
-      return "Nâng cao";
+    case "Y":
+      return "Y";
+    case "TB_MINUS":
+      return "TB-";
+    case "TB":
+      return "TB";
+    case "TB_PLUS":
+      return "TB+";
+    case "KHA":
+      return "Khá";
+    case "TUYEN":
+      return "Tuyển";
     default:
       return skillLevel;
   }
@@ -213,14 +221,18 @@ function getTransactionStatusCssClass(
 
 function getSessionSkillLabel(level: PlayerSkillLevel): string {
   switch (level) {
+    case "Y":
+      return "Y";
+    case "TB_MINUS":
+      return "TB-";
     case "TB":
       return "TB";
     case "TB_PLUS":
       return "TB+";
     case "KHA":
       return "Khá";
-    case "GIOI":
-      return "Giỏi";
+    case "TUYEN":
+      return "Tuyển";
     default:
       return level;
   }
@@ -279,39 +291,6 @@ function sortBookingsStable(bookings: Booking[]) {
   });
 }
 
-function showAppToast(kind: ToastKind, title: string, message: string) {
-  toast.custom(
-    (toastItem) => (
-      <div className={`app-toast app-toast-${kind}`}>
-        <div className={`app-toast-icon app-toast-icon-${kind}`}>
-          {kind === "success"
-            ? "✓"
-            : kind === "info"
-              ? "i"
-              : kind === "warning"
-                ? "!"
-                : "x"}
-        </div>
-        <div className="app-toast-copy">
-          <strong>{title}</strong>
-          <p>{message}</p>
-        </div>
-        <button
-          type="button"
-          className="app-toast-close"
-          onClick={() => toast.remove(toastItem.id)}
-          aria-label="Đóng thông báo"
-        >
-          ×
-        </button>
-      </div>
-    ),
-    {
-      duration: 3200,
-      position: "top-center",
-    },
-  );
-}
 
 export default function App() {
   const [publicBookingSettings, setPublicBookingSettings] =
@@ -453,7 +432,7 @@ export default function App() {
       return;
     }
 
-    showAppToast("error", "Something went wrong!", error);
+    toast.error(error);
   }, [error]);
 
   useEffect(() => {
@@ -461,7 +440,7 @@ export default function App() {
       return;
     }
 
-    showAppToast("warning", "Login failed", loginError);
+    toast.error(loginError);
   }, [loginError]);
 
   function renderCurrencyInput(
@@ -506,11 +485,7 @@ export default function App() {
         photoPublicId: uploadResult.publicId,
       }));
       setError("");
-      showAppToast(
-        "success",
-        "Tải ảnh thành công",
-        "Ảnh khách đã được lưu sẵn.",
-      );
+      toast.success("Ảnh khách đã được lưu sẵn.");
     } catch (uploadError) {
       setError(
         uploadError instanceof Error
@@ -679,6 +654,7 @@ export default function App() {
   useEffect(() => {
     if (!authSession || activeSectionTab !== "coordination") return;
     void (async () => {
+      setIsSlotsLoading(true);
       try {
         const [sessions, slots] = await Promise.all([
           api.getSessions(),
@@ -686,9 +662,13 @@ export default function App() {
         ]);
         setSessions(sessions);
         setBookingSlots(slots);
-      } catch {}
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Không thể tải dữ liệu điều phối");
+      } finally {
+        setIsSlotsLoading(false);
+      }
     })();
-  }, [authSession, activeSectionTab]);
+  }, [authSession, activeSectionTab, selectedDate]);
 
   useEffect(() => {
     if (!activeSession || activeSession.status !== "ACTIVE") return;
@@ -722,7 +702,7 @@ export default function App() {
         username: "",
         password: "",
       });
-      showAppToast("success", "Congratulations!", "Đăng nhập thành công.");
+      toast.success("Đăng nhập thành công.");
     } catch (loginSubmitError) {
       setLoginError(
         loginSubmitError instanceof Error
@@ -741,7 +721,7 @@ export default function App() {
     setDetailBooking(null);
     setFullscreenPhotoUrl(null);
     setError("");
-    showAppToast("info", "Did you know?", "Bạn đã đăng xuất khỏi hệ thống.");
+    toast("Bạn đã đăng xuất khỏi hệ thống.");
   }
 
   useEffect(() => {
@@ -799,14 +779,12 @@ export default function App() {
     setIsSubmitting(true);
 
     try {
+      const submittedDate = form.bookingDate;
       await api.createBooking(form);
-      setForm({ ...initialForm, bookingDate: selectedDate });
-      await loadData();
-      showAppToast(
-        "success",
-        "Congratulations!",
-        "Đã thêm khách vào danh sách.",
-      );
+      setForm({ ...initialForm, bookingDate: submittedDate });
+      setSelectedDate(submittedDate);
+      await Promise.all([loadData(), handleLoadBookingSlots(submittedDate)]);
+      toast.success("Đã thêm khách vào danh sách.");
     } catch (submitError) {
       setError(
         submitError instanceof Error
@@ -833,11 +811,7 @@ export default function App() {
           ? loadQuickSlots(selectedDate)
           : Promise.resolve(),
       ]);
-      showAppToast(
-        "success",
-        "Congratulations!",
-        "Thêm khung giờ chơi mới vào ngày đã chọn thành công.",
-      );
+      toast.success("Thêm khung giờ chơi mới vào ngày đã chọn thành công.");
     } catch (actionError) {
       setError(
         actionError instanceof Error
@@ -858,11 +832,7 @@ export default function App() {
           ? loadQuickSlots(selectedDate)
           : Promise.resolve(),
       ]);
-      showAppToast(
-        "info",
-        "Did you know?",
-        "Đã xóa khung giờ chơi khỏi ngày đã chọn.",
-      );
+      toast("Đã xóa khung giờ chơi khỏi ngày đã chọn.");
     } catch (actionError) {
       setError(
         actionError instanceof Error
@@ -884,11 +854,7 @@ export default function App() {
         ...currentForm,
         depositAmount: nextSettings.depositAmount,
       }));
-      showAppToast(
-        "success",
-        "Congratulations!",
-        "Đã cập nhật tiền cọc áp dụng cho booking QR ở site khách hàng.",
-      );
+      toast.success("Đã cập nhật tiền cọc áp dụng cho booking QR ở site khách hàng.");
     } catch (actionError) {
       setError(
         actionError instanceof Error
@@ -904,7 +870,14 @@ export default function App() {
     try {
       await api.checkIn(id);
       await loadData();
-      showAppToast("success", "Congratulations!", "Đã check-in khách.");
+      if (activeSession) {
+        try {
+          const updated = await api.getSession(activeSession.id);
+          setActiveSession(updated);
+          setSessions((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+        } catch {}
+      }
+      toast.success("Đã check-in khách.");
     } catch (actionError) {
       setError(
         actionError instanceof Error
@@ -918,7 +891,7 @@ export default function App() {
     try {
       await api.confirmFullPayment(id);
       await loadData();
-      showAppToast("success", "Congratulations!", "Đã xác nhận thanh toán đủ.");
+      toast.success("Đã xác nhận thanh toán đủ.");
     } catch (actionError) {
       setError(
         actionError instanceof Error
@@ -932,7 +905,7 @@ export default function App() {
     try {
       await api.markNoShow(id);
       await loadData();
-      showAppToast("warning", "Warning!", "Khách đã được đánh dấu không đến.");
+      toast.error("Khách đã được đánh dấu không đến.");
     } catch (actionError) {
       setError(
         actionError instanceof Error
@@ -946,11 +919,7 @@ export default function App() {
     try {
       await api.restoreBooking(id);
       await loadData();
-      showAppToast(
-        "success",
-        "Đã khôi phục!",
-        "Booking đã được khôi phục và đưa lại vào danh sách vợt thủ.",
-      );
+      toast.success("Booking đã được khôi phục và đưa lại vào danh sách vợt thủ.");
     } catch (actionError) {
       setError(
         actionError instanceof Error
@@ -964,7 +933,7 @@ export default function App() {
     try {
       await api.deleteBooking(id);
       await loadData();
-      showAppToast("info", "Did you know?", "Đã xóa booking của khách.");
+      toast("Đã xóa booking của khách.");
     } catch (actionError) {
       setError(
         actionError instanceof Error
@@ -1005,7 +974,7 @@ export default function App() {
         endTime: "22:00",
         numberOfCourts: 2,
       });
-      showAppToast("success", "Congratulations!", "Đã tạo buổi chơi mới.");
+      toast.success("Đã tạo buổi chơi mới.");
       handleOpenSession(created);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Không thể tạo buổi chơi");
@@ -1062,13 +1031,7 @@ export default function App() {
         prev.map((s) => (s.id === updated.id ? updated : s)),
       );
       setSuggestionOptionIndex({});
-      showAppToast(
-        "success",
-        "Congratulations!",
-        status === "ACTIVE"
-          ? "Buổi chơi đã bắt đầu!"
-          : "Buổi chơi đã kết thúc.",
-      );
+      toast.success(status === "ACTIVE" ? "Buổi chơi đã bắt đầu!" : "Buổi chơi đã kết thúc.");
     } catch (e) {
       setError(
         e instanceof Error ? e.message : "Cập nhật trạng thái thất bại",
@@ -1087,7 +1050,7 @@ export default function App() {
       setActiveSession(updated);
       setNewPlayerForm({ name: "", skillLevel: "TB" });
       setIsAddingPlayer(false);
-      showAppToast("success", "Congratulations!", "Đã thêm người chơi.");
+      toast.success("Đã thêm người chơi.");
     } catch (e) {
       setError(
         e instanceof Error ? e.message : "Không thể thêm người chơi",
@@ -1116,6 +1079,7 @@ export default function App() {
     try {
       const updated = await api.checkInSessionPlayer(activeSession.id, playerId);
       setActiveSession(updated);
+      void loadData();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Check-in thất bại");
     }
@@ -1136,11 +1100,7 @@ export default function App() {
       });
       setActiveSession(updated);
       setSuggestionOptionIndex((prev) => ({ ...prev, [courtNumber]: 0 }));
-      showAppToast(
-        "success",
-        "Congratulations!",
-        `Trận đấu sân ${courtNumber} đã bắt đầu!`,
-      );
+      toast.success(`Trận đấu sân ${courtNumber} đã bắt đầu!`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Không thể bắt đầu trận");
     }
@@ -1164,7 +1124,7 @@ export default function App() {
       const updated = await api.endMatch(activeSession.id, matchId);
       setActiveSession(updated);
       setSuggestionOptionIndex({});
-      showAppToast("info", "Did you know?", "Trận đấu đã kết thúc.");
+      toast("Trận đấu đã kết thúc.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Không thể kết thúc trận");
     }
@@ -1208,7 +1168,7 @@ export default function App() {
 
     try {
       await navigator.clipboard.writeText(url.toString());
-      showAppToast("success", "Đã sao chép", "Link Màn hình TV đã được copy.");
+      toast.success("Link Màn hình TV đã được copy.");
     } catch {
       window.prompt("Sao chép link Màn hình TV", url.toString());
     }
@@ -1223,13 +1183,7 @@ export default function App() {
     try {
       await api.updateMatchTracking(id, slot, checked);
       await loadData();
-      showAppToast(
-        "info",
-        "Did you know?",
-        checked
-          ? "Đã đánh dấu hoàn thành lượt chơi."
-          : "Đã bỏ đánh dấu lượt chơi.",
-      );
+      toast(checked ? "Đã đánh dấu hoàn thành lượt chơi." : "Đã bỏ đánh dấu lượt chơi.");
     } catch (actionError) {
       setError(
         actionError instanceof Error
@@ -1804,15 +1758,7 @@ export default function App() {
 
   return (
     <div className="shell">
-      <Toaster
-        position="top-center"
-        gutter={14}
-        containerStyle={{
-          top: 20,
-          left: 16,
-          right: 16,
-        }}
-      />
+      <Toaster position="top-center" />
       <header className="hero">
         <div>
           <p className="eyebrow">Quản Lý Sân Cầu Lông</p>
@@ -2066,9 +2012,12 @@ export default function App() {
                   <input
                     type="date"
                     value={form.bookingDate}
-                    onChange={(event) =>
-                      setForm({ ...form, bookingDate: event.target.value })
-                    }
+                    onChange={(event) => {
+                      const d = event.target.value;
+                      setForm({ ...form, bookingDate: d });
+                      setSelectedDate(d);
+                      void handleLoadBookingSlots(d);
+                    }}
                     required
                   />
                 </label>
@@ -2302,13 +2251,22 @@ export default function App() {
               <p className="panel-tag">Danh sách vợt thủ</p>
               <div className="history-subhead-row">
                 <h3>Danh sách khách theo ngày và trạng thái</h3>
-                <button
-                  type="button"
-                  className="ghost-button view-button"
-                  onClick={() => setIsQueueModalOpen(true)}
-                >
-                  <span>Xem</span>
-                </button>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    type="button"
+                    className="ghost-button view-button"
+                    onClick={() => void loadData()}
+                  >
+                    <span>Làm mới</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost-button view-button"
+                    onClick={() => setIsQueueModalOpen(true)}
+                  >
+                    <span>Xem</span>
+                  </button>
+                </div>
               </div>
             </div>
             <div className="schedule-list">
@@ -2888,6 +2846,15 @@ export default function App() {
                   <p className="panel-tag">Điều phối buổi chơi</p>
                   <h2>Chọn khung giờ</h2>
                 </div>
+                <button
+                  type="button"
+                  className="ghost-button"
+                  style={{ alignSelf: "flex-start" }}
+                  onClick={() => void handleLoadBookingSlots(selectedDate)}
+                  disabled={isSlotsLoading}
+                >
+                  {isSlotsLoading ? "Đang tải..." : "Làm mới"}
+                </button>
               </div>
 
               {isSlotsLoading ? (
@@ -2902,49 +2869,49 @@ export default function App() {
                     const slotKey = `${slot.startTime}|${slot.endTime}`;
                     const courtCount = slotCourtCounts[slotKey] ?? Math.max(slot.courts.length, 1);
                     return (
-                    <div
-                      key={`${slot.startTime}-${slot.endTime}`}
-                      style={{ background: "var(--color-background-primary, #fff)", borderRadius: 12, border: "0.5px solid var(--color-border-tertiary, #e5e7eb)", padding: "14px 16px" }}
-                    >
-                      <div style={{ marginBottom: 12 }}>
-                        <div style={{ fontSize: 17, fontWeight: 600 }}>
-                          {slot.startTime} – {slot.endTime}
+                      <div
+                        key={`${slot.startTime}-${slot.endTime}`}
+                        style={{ background: "var(--color-background-primary, #fff)", borderRadius: 12, border: "0.5px solid var(--color-border-tertiary, #e5e7eb)", padding: "14px 16px" }}
+                      >
+                        <div style={{ marginBottom: 12 }}>
+                          <div style={{ fontSize: 17, fontWeight: 600 }}>
+                            {slot.startTime} – {slot.endTime}
+                          </div>
+                          <div style={{ display: "flex", gap: 12, fontSize: 13, marginTop: 6, flexWrap: "wrap" }}>
+                            <span>{slot.totalBookings} người đặt</span>
+                            {slot.checkedInCount > 0 ? (
+                              <span style={{ color: "#0f6e56" }}>{slot.checkedInCount} check-in</span>
+                            ) : null}
+                          </div>
                         </div>
-                        <div style={{ display: "flex", gap: 12, fontSize: 13, marginTop: 6, flexWrap: "wrap" }}>
-                          <span>{slot.totalBookings} người đặt</span>
-                          {slot.checkedInCount > 0 ? (
-                            <span style={{ color: "#0f6e56" }}>{slot.checkedInCount} check-in</span>
-                          ) : null}
-                        </div>
-                      </div>
-                      {slot.existingSessionId === null ? (
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, fontSize: 13 }}>
-                          <span style={{ color: "#6b7280" }}>Số sân:</span>
+                        {slot.existingSessionId === null ? (
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, fontSize: 13 }}>
+                            <span style={{ color: "#6b7280" }}>Số sân:</span>
+                            <button
+                              type="button"
+                              onClick={() => setSlotCourtCounts((prev) => ({ ...prev, [slotKey]: Math.max(1, courtCount - 1) }))}
+                              disabled={courtCount <= 1}
+                              style={{ width: 24, height: 24, borderRadius: "50%", border: "1px solid #d1d5db", background: "#fff", cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}
+                            >−</button>
+                            <span style={{ fontWeight: 600, minWidth: 20, textAlign: "center" }}>{courtCount}</span>
+                            <button
+                              type="button"
+                              onClick={() => setSlotCourtCounts((prev) => ({ ...prev, [slotKey]: courtCount + 1 }))}
+                              style={{ width: 24, height: 24, borderRadius: "50%", border: "1px solid #d1d5db", background: "#fff", cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}
+                            >+</button>
+                          </div>
+                        ) : null}
+                        <div style={{ display: "flex", gap: 8 }}>
                           <button
                             type="button"
-                            onClick={() => setSlotCourtCounts((prev) => ({ ...prev, [slotKey]: Math.max(1, courtCount - 1) }))}
-                            disabled={courtCount <= 1}
-                            style={{ width: 24, height: 24, borderRadius: "50%", border: "1px solid #d1d5db", background: "#fff", cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}
-                          >−</button>
-                          <span style={{ fontWeight: 600, minWidth: 20, textAlign: "center" }}>{courtCount}</span>
-                          <button
-                            type="button"
-                            onClick={() => setSlotCourtCounts((prev) => ({ ...prev, [slotKey]: courtCount + 1 }))}
-                            style={{ width: 24, height: 24, borderRadius: "50%", border: "1px solid #d1d5db", background: "#fff", cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}
-                          >+</button>
+                            className="primary-button"
+                            style={{ flex: 1 }}
+                            onClick={() => void handleOpenSlotCoordination(slot)}
+                          >
+                            {slot.existingSessionId !== null ? "Tiếp tục →" : "Mở điều phối"}
+                          </button>
                         </div>
-                      ) : null}
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <button
-                          type="button"
-                          className="primary-button"
-                          style={{ flex: 1 }}
-                          onClick={() => void handleOpenSlotCoordination(slot)}
-                        >
-                          {slot.existingSessionId !== null ? "Tiếp tục →" : "Mở điều phối"}
-                        </button>
                       </div>
-                    </div>
                     );
                   })}
                 </div>
@@ -3008,7 +2975,7 @@ export default function App() {
                   ) : null}
                       {activeSession.status === "ACTIVE" ? (
                         <>
-                          <button type="button" className="ghost-button" onClick={() => handleOpenTVBoard(activeSession.id)}>
+                          {/* <button type="button" className="ghost-button" onClick={() => handleOpenTVBoard(activeSession.id)}>
                             📺 Màn hình TV
                           </button>
                           <button
@@ -3017,7 +2984,7 @@ export default function App() {
                             onClick={() => void handleCopyTVBoardLink(activeSession.id)}
                           >
                             Sao chép link
-                          </button>
+                          </button> */}
                           <button type="button" className="warning-button" onClick={() => void handleSessionStatus("ENDED")}>
                             Kết thúc buổi
                           </button>
@@ -3310,10 +3277,12 @@ export default function App() {
                       <select value={newPlayerForm.skillLevel}
                         onChange={(e) => setNewPlayerForm((f) => ({ ...f, skillLevel: e.target.value as PlayerSkillLevel }))}
                         style={{ minWidth: 90 }}>
+                        <option value="Y">Y</option>
+                        <option value="TB_MINUS">TB-</option>
                         <option value="TB">TB</option>
                         <option value="TB_PLUS">TB+</option>
                         <option value="KHA">Khá</option>
-                        <option value="GIOI">Giỏi</option>
+                        <option value="TUYEN">Tuyển</option>
                       </select>
                       <button type="submit" className="primary-button" style={{ fontSize: 13 }}>Thêm</button>
                     </form>

@@ -498,6 +498,126 @@ button {
   }
 }
 
+/* ── Skill level radio cards ─────────────────────────────────────────────── */
+
+.skill-section {
+  display: grid;
+  gap: 1rem;
+}
+
+.skill-section-header {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.skill-section-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #102f38;
+}
+
+.skill-section-subtitle {
+  margin: 0;
+  font-size: 0.86rem;
+  color: #617983;
+  line-height: 1.5;
+}
+
+.skill-radio-group {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.skill-radio-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  padding: 0.95rem 1.1rem;
+  border-radius: 18px;
+  border: 1.5px solid #d5e2e7;
+  background: #f8fbfc;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.skill-radio-card:hover {
+  border-color: #a8c8d4;
+  background: #f2f8fb;
+}
+
+.skill-radio-card input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.skill-radio-dot {
+  flex-shrink: 0;
+  margin-top: 0.18rem;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid #b0c4cc;
+  background: #fff;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.skill-radio-card.selected {
+  border-color: #22836f;
+  background: #edfaf5;
+}
+
+.skill-radio-card.selected .skill-radio-dot {
+  border-color: #22836f;
+  background: #22836f;
+  box-shadow: inset 0 0 0 3px #fff;
+}
+
+.skill-radio-card.selected .skill-radio-label {
+  color: #0e5b54;
+}
+
+.skill-radio-text {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.skill-radio-label {
+  font-size: 0.97rem;
+  font-weight: 700;
+  color: #102f38;
+}
+
+.skill-radio-desc {
+  font-size: 0.83rem;
+  color: #617983;
+  line-height: 1.5;
+}
+
+.skill-error {
+  margin: 0;
+  padding: 0.6rem 0.9rem;
+  border-radius: 10px;
+  background: #fff1f1;
+  border: 1px solid #fca5a5;
+  font-size: 0.83rem;
+  color: #b91c1c;
+}
+
+.skill-tip {
+  margin: 0;
+  padding: 0.8rem 1rem;
+  border-radius: 14px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  font-size: 0.83rem;
+  color: #78540c;
+  line-height: 1.55;
+}
+
 @media (max-width: 767px) {
   .customer-shell {
     width: calc(100% - 1.5rem);

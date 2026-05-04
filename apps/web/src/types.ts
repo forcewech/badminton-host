@@ -48,7 +48,7 @@ export type BookingStatus =
   | 'CANCELLED';
 
 export type CustomerGender = 'MALE' | 'FEMALE' | 'OTHER';
-export type SkillLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
+export type SkillLevel = 'Y' | 'TB_MINUS' | 'TB' | 'TB_PLUS' | 'KHA' | 'TUYEN';
 
 export type Booking = {
   id: number;
@@ -105,7 +105,7 @@ export type AuthSession = {
 
 // ── Play-session coordination types ───────────────────────────────────────────
 
-export type PlayerSkillLevel = 'TB' | 'TB_PLUS' | 'KHA' | 'GIOI';
+export type PlayerSkillLevel = 'Y' | 'TB_MINUS' | 'TB' | 'TB_PLUS' | 'KHA' | 'TUYEN';
 export type SessionStatus = 'UPCOMING' | 'ACTIVE' | 'ENDED';
 export type MatchStatus = 'PLAYING' | 'ENDED';
 

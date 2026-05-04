@@ -461,10 +461,12 @@ export class BookingsService {
     }
   }
 
-  private mapBookingSkillLevel(level: string) {
-    if (level === "ADVANCED") return "GIOI";
-    if (level === "INTERMEDIATE") return "KHA";
-    return "TB";
+  private mapBookingSkillLevel(level: string): string {
+    // Legacy values from old 3-level system
+    if (level === 'ADVANCED') return 'TUYEN';
+    if (level === 'INTERMEDIATE') return 'KHA';
+    if (level === 'BEGINNER') return 'TB';
+    return level;
   }
 
   private async getDefaultDepositAmount() {

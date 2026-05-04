@@ -8,7 +8,7 @@ import {
 } from 'typeorm';
 import { PlaySession } from './play-session.entity';
 
-export type PlayerSkillLevel = 'TB' | 'TB_PLUS' | 'KHA' | 'GIOI';
+export type PlayerSkillLevel = 'Y' | 'TB_MINUS' | 'TB' | 'TB_PLUS' | 'KHA' | 'TUYEN';
 
 @Entity()
 export class PlaySessionPlayer {

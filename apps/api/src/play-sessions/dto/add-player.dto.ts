@@ -6,6 +6,6 @@ export class AddPlayerDto {
   @IsNotEmpty()
   name!: string;
 
-  @IsIn(['TB', 'TB_PLUS', 'KHA', 'GIOI'])
+  @IsIn(['Y', 'TB_MINUS', 'TB', 'TB_PLUS', 'KHA', 'TUYEN'])
   skillLevel!: PlayerSkillLevel;
 }

@@ -9,9 +9,12 @@ export enum CustomerGender {
 }
 
 export enum SkillLevel {
-  BEGINNER = 'BEGINNER',
-  INTERMEDIATE = 'INTERMEDIATE',
-  ADVANCED = 'ADVANCED',
+  Y = 'Y',
+  TB_MINUS = 'TB_MINUS',
+  TB = 'TB',
+  TB_PLUS = 'TB_PLUS',
+  KHA = 'KHA',
+  TUYEN = 'TUYEN',
 }
 
 @Entity('bookings')
@@ -32,11 +35,7 @@ export class Booking {
   })
   gender!: CustomerGender;
 
-  @Column({
-    type: 'enum',
-    enum: SkillLevel,
-    default: SkillLevel.BEGINNER,
-  })
+  @Column({ type: 'varchar', default: SkillLevel.TB })
   skillLevel!: SkillLevel;
 
   @Column()

@@ -1,5 +1,5 @@
 export type CustomerGender = "MALE" | "FEMALE" | "OTHER";
-export type SkillLevel = "BEGINNER" | "INTERMEDIATE" | "ADVANCED";
+export type SkillLevel = "Y" | "TB_MINUS" | "TB" | "TB_PLUS" | "KHA" | "TUYEN";
 export type BookingStatus =
   | "PENDING"
   | "CONFIRMED"

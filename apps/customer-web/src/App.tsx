@@ -16,10 +16,13 @@ const genderOptions: Array<{ value: CustomerGender; label: string }> = [
   { value: "OTHER", label: "Khác" },
 ];
 
-const skillOptions: Array<{ value: SkillLevel; label: string }> = [
-  { value: "BEGINNER", label: "Mới bắt đầu" },
-  { value: "INTERMEDIATE", label: "Trung bình" },
-  { value: "ADVANCED", label: "Nâng cao" },
+const skillOptions: Array<{ value: SkillLevel; label: string; description: string }> = [
+  { value: "Y", label: "Yếu (Y)", description: "Giao cầu vào ô được, đỡ cầu cơ bản, nhưng chưa đỡ được cầu mạnh hay cầu treo cao." },
+  { value: "TB_MINUS", label: "Trung bình yếu (TB-)", description: "Đỡ được cầu thường nhưng chưa ổn định, chưa có cú tấn công hiệu quả." },
+  { value: "TB", label: "Trung bình (TB)", description: "Đỡ được phần lớn đường cầu thường, phối hợp đánh đôi cơ bản, chưa có cú đập mạnh." },
+  { value: "TB_PLUS", label: "Trung bình khá (TB+)", description: "Đập cầu được, đỡ cầu treo và cầu phong ổn, biết đặt cầu, có ý thức chiến thuật khi đánh đôi." },
+  { value: "KHA", label: "Khá", description: "Đập cầu mạnh và chính xác, di chuyển sân tốt, có cú trái tay ổn, từng đánh giải phong trào." },
+  { value: "TUYEN", label: "Tuyển", description: "Tập luyện thường xuyên có HLV, đang hoặc đã thi đấu giải các cấp." },
 ];
 
 function getLocalDateInputValue() {
@@ -59,11 +62,11 @@ function getDisplayPhotoUrl(photoUrl?: string | null) {
   return photoUrl.replace("/upload/", "/upload/f_auto,q_auto/");
 }
 
-const initialForm: PublicBookingPayload = {
+const initialForm = {
   customerName: "",
   customerPhone: "",
-  gender: "OTHER",
-  skillLevel: "BEGINNER",
+  gender: "OTHER" as CustomerGender,
+  skillLevel: "" as SkillLevel | "",
   bookingDate: getLocalDateInputValue(),
   startTime: "19:00",
   endTime: "21:00",
@@ -72,8 +75,11 @@ const initialForm: PublicBookingPayload = {
   photoPublicId: "",
 };
 
+type FormState = Omit<PublicBookingPayload, 'skillLevel'> & { skillLevel: SkillLevel | '' };
+
 export default function App() {
-  const [form, setForm] = useState<PublicBookingPayload>(initialForm);
+  const [form, setForm] = useState<FormState>(initialForm);
+  const [skillLevelError, setSkillLevelError] = useState(false);
   const [quickSlots, setQuickSlots] = useState<QuickSlot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState("");
   const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
@@ -234,10 +240,11 @@ export default function App() {
     };
   }, [photoPreview]);
 
-  function handleFormChange<K extends keyof PublicBookingPayload>(
+  function handleFormChange<K extends keyof FormState>(
     key: K,
-    value: PublicBookingPayload[K],
+    value: FormState[K],
   ) {
+    if (key === 'skillLevel') setSkillLevelError(false);
     setForm((current) => ({
       ...current,
       [key]: value,
@@ -257,6 +264,12 @@ export default function App() {
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
+
+    if (!form.skillLevel) {
+      setSkillLevelError(true);
+      toast.error("Vui lòng chọn trình độ của bạn.");
+      return;
+    }
 
     if (!selectedSlot) {
       toast.error("Vui lòng chọn khung giờ chơi trước khi tiếp tục.");
@@ -283,7 +296,7 @@ export default function App() {
       }
 
       const result = await api.createBooking({
-        ...form,
+        ...(form as PublicBookingPayload),
         photoUrl,
         photoPublicId,
       });
@@ -396,25 +409,6 @@ export default function App() {
                   </label>
 
                   <label>
-                    Trình độ
-                    <select
-                      value={form.skillLevel}
-                      onChange={(event) =>
-                        handleFormChange(
-                          "skillLevel",
-                          event.target.value as SkillLevel,
-                        )
-                      }
-                    >
-                      {skillOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label>
                     Ngày đặt
                     <input
                       type="date"
@@ -425,6 +419,41 @@ export default function App() {
                       required
                     />
                   </label>
+                </div>
+
+                <div className="skill-section">
+                  <div className="skill-section-header">
+                    <span className="panel-tag">Trình độ</span>
+                    <p className="skill-section-title">Bạn tự đánh giá mình thế nào?</p>
+                    <p className="skill-section-subtitle">Host sẽ xác nhận lại sau buổi đầu — chọn đúng giúp bạn được ghép cặp phù hợp, chơi vui hơn.</p>
+                  </div>
+                  <div className="skill-radio-group" role="radiogroup" aria-label="Trình độ chơi">
+                    {skillOptions.map((option) => (
+                      <label
+                        key={option.value}
+                        className={`skill-radio-card${form.skillLevel === option.value ? " selected" : ""}`}
+                      >
+                        <input
+                          type="radio"
+                          name="skillLevel"
+                          value={option.value}
+                          checked={form.skillLevel === option.value}
+                          onChange={() => handleFormChange("skillLevel", option.value)}
+                        />
+                        <span className="skill-radio-dot" />
+                        <span className="skill-radio-text">
+                          <span className="skill-radio-label">{option.label}</span>
+                          <span className="skill-radio-desc">{option.description}</span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  {skillLevelError ? (
+                    <p className="skill-error">Vui lòng chọn trình độ của bạn trước khi tiếp tục.</p>
+                  ) : null}
+                  <p className="skill-tip">
+                    💡 Mẹo: Nếu chưa chắc, hãy chọn thấp hơn 1 bậc. Host sẽ điều chỉnh sau buổi đầu nếu thấy bạn hợp với nhóm khác — bạn không cần lo "chọn sai".
+                  </p>
                 </div>
 
                 <div className="quick-slot-card">
