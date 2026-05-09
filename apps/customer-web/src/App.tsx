@@ -1,12 +1,13 @@
 ﻿import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { Toaster, toast } from "react-hot-toast";
-import { api } from "./api";
+import { api, ApiError } from "./api";
 import type {
   CustomerGender,
   PublicBookingPayload,
   PublicBookingResponse,
   PublicPaymentStatus,
   QuickSlot,
+  ShopItem,
   SkillLevel,
 } from "./types";
 
@@ -59,6 +60,18 @@ function getDateRelation(dateStr: string): "past" | "today" | "future" {
   if (dateStr < today) return "past";
   if (dateStr === today) return "today";
   return "future";
+}
+
+function isSlotEnded(bookingDate: string, endTime: string): boolean {
+  if (!bookingDate || !endTime) return false;
+  const relation = getDateRelation(bookingDate);
+  if (relation === "past") return true;
+  if (relation === "future") return false;
+  const now = new Date();
+  const [hours, minutes] = endTime.split(":").map(Number);
+  const slotEnd = new Date();
+  slotEnd.setHours(hours, minutes, 0, 0);
+  return now >= slotEnd;
 }
 
 function getDisplayPhotoUrl(photoUrl?: string | null) {
@@ -114,6 +127,7 @@ export default function App() {
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
   const [hasHandledSuccessfulPayment, setHasHandledSuccessfulPayment] =
     useState(false);
+  const [shopItems, setShopItems] = useState<ShopItem[]>([]);
 
   const paymentReference = submission?.booking.depositReference ?? null;
   const currentPayment = paymentStatus?.payment ?? submission?.payment ?? null;
@@ -174,8 +188,8 @@ export default function App() {
 
     let cancelled = false;
 
-    const loadQuickSlots = async () => {
-      setIsLoadingQuickSlots(true);
+    const loadQuickSlots = async (isInitial: boolean) => {
+      if (isInitial) setIsLoadingQuickSlots(true);
 
       try {
         const nextQuickSlots = await api.getQuickSlots(form.bookingDate);
@@ -184,25 +198,41 @@ export default function App() {
         }
 
         setQuickSlots(nextQuickSlots);
-        setSelectedSlot("");
+        if (isInitial) setSelectedSlot("");
       } catch {
-        if (!cancelled) {
+        if (!cancelled && isInitial) {
           setQuickSlots([]);
           setSelectedSlot("");
         }
       } finally {
-        if (!cancelled) {
+        if (!cancelled && isInitial) {
           setIsLoadingQuickSlots(false);
         }
       }
     };
 
-    void loadQuickSlots();
+    void loadQuickSlots(true);
+
+    const interval = window.setInterval(() => {
+      void loadQuickSlots(false);
+    }, 5000);
 
     return () => {
       cancelled = true;
+      window.clearInterval(interval);
     };
   }, [form.bookingDate, submission]);
+
+  useEffect(() => {
+    if (!selectedSlot) return;
+    const slot = quickSlots.find(
+      (s) => `${s.startTime}-${s.endTime}` === selectedSlot,
+    );
+    if (slot && slot.currentBookings >= slot.maxPlayers) {
+      setSelectedSlot("");
+      toast.error("Khung giờ bạn chọn vừa được đặt hết. Vui lòng chọn khung giờ khác.");
+    }
+  }, [quickSlots, selectedSlot]);
 
   useEffect(() => {
     if (!isPaid || hasHandledSuccessfulPayment) {
@@ -254,6 +284,22 @@ export default function App() {
       }
     };
   }, [photoPreview]);
+
+  useEffect(() => {
+    if (!submission) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const items = await api.getShopItems();
+        if (!cancelled) setShopItems(items);
+      } catch {
+        if (!cancelled) setShopItems([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [submission]);
 
   function handleFormChange<K extends keyof FormState>(
     key: K,
@@ -335,9 +381,18 @@ export default function App() {
 
       toast.success("Đã ghi nhận thông tin. Vui lòng chuyển khoản tiền cọc.");
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Không thể gửi thông tin.",
-      );
+      if (error instanceof ApiError && error.status === 409) {
+        toast.error(error.message);
+        setSelectedSlot("");
+        try {
+          const refreshed = await api.getQuickSlots(form.bookingDate);
+          setQuickSlots(refreshed);
+        } catch {}
+      } else {
+        toast.error(
+          error instanceof Error ? error.message : "Không thể gửi thông tin.",
+        );
+      }
     } finally {
       setIsSubmitting(false);
       setIsUploadingPhoto(false);
@@ -517,23 +572,42 @@ export default function App() {
                   <div className="slot-grid">
                     {quickSlots.map((slot) => {
                       const slotKey = `${slot.startTime}-${slot.endTime}`;
+                      const ended = isSlotEnded(form.bookingDate, slot.endTime);
+                      const isFull = slot.currentBookings >= slot.maxPlayers;
+                      const disabled = ended || isFull;
 
                       return (
                         <button
                           key={slotKey}
                           type="button"
                           className={
-                            selectedSlot === slotKey
-                              ? "slot-button active"
-                              : "slot-button"
+                            ended
+                              ? "slot-button ended"
+                              : isFull
+                                ? "slot-button full"
+                                : selectedSlot === slotKey
+                                  ? "slot-button active"
+                                  : "slot-button"
                           }
+                          disabled={disabled}
                           onClick={() => {
+                            if (disabled) return;
                             setSelectedSlot(slotKey);
                             handleFormChange("startTime", slot.startTime);
                             handleFormChange("endTime", slot.endTime);
                           }}
                         >
-                          {formatQuickSlotLabel(slot.startTime, slot.endTime)}
+                          <span className="slot-button-time">
+                            {formatQuickSlotLabel(slot.startTime, slot.endTime)}
+                          </span>
+                          <span className="slot-button-count">
+                            {slot.currentBookings}/{slot.maxPlayers} người
+                          </span>
+                          {ended ? (
+                            <span className="slot-button-status">Đã kết thúc</span>
+                          ) : isFull ? (
+                            <span className="slot-button-status slot-button-status-full">Đã đủ người</span>
+                          ) : null}
                         </button>
                       );
                     })}
@@ -612,8 +686,7 @@ export default function App() {
                 <p className="panel-tag">Bước chuyển khoản</p>
                 <h2>Quét QR hoặc chuyển khoản thủ công</h2>
                 <p>
-                  Màn hình sẽ tự cập nhật ngay khi webhook ngân hàng báo đã nhận
-                  tiền cọc.
+                  Chuyển khoản thành công bạn chờ xíu để hệ thống xác nhận nhaa!!
                 </p>
               </div>
 
@@ -649,7 +722,7 @@ export default function App() {
                   {!isPaid && isExpired ? (
                     <div className="payment-loading-row payment-loading-row-expired">
                       <small>
-                        Mã QR đã hết hạn sau 2 phút. Vui lòng tạo lượt đăng ký
+                        Mã QR đã hết hạn sau 5 phút. Vui lòng tạo lượt đăng ký
                         mới.
                       </small>
                     </div>
@@ -748,6 +821,56 @@ export default function App() {
                   </div>
                 </section>
               </div>
+
+              {shopItems.length > 0 ? (
+                <aside className="shop-sidebar">
+                  <div className="shop-sidebar-head">
+                    <h3>Một số sản phẩm hay dùng!!!</h3>
+                  </div>
+                  <div className="shop-grid">
+                    {shopItems.map((item) => {
+                      const card = (
+                        <div className="shop-card-inner">
+                          {item.imageUrl ? (
+                            <div className="shop-card-image">
+                              <img
+                                src={getDisplayPhotoUrl(item.imageUrl)}
+                                alt={item.name}
+                                loading="lazy"
+                              />
+                            </div>
+                          ) : (
+                            <div className="shop-card-image shop-card-image-empty">
+                              Chưa có ảnh
+                            </div>
+                          )}
+                          <div className="shop-card-body">
+                            <p className="shop-card-name">{item.name}</p>
+                            {item.priceLabel ? (
+                              <p className="shop-card-price">{item.priceLabel}</p>
+                            ) : null}
+                          </div>
+                        </div>
+                      );
+                      return item.link ? (
+                        <a
+                          key={item.id}
+                          className="shop-card shop-card-link"
+                          href={item.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {card}
+                        </a>
+                      ) : (
+                        <div key={item.id} className="shop-card">
+                          {card}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </aside>
+              ) : null}
             </div>
           )}
         </section>

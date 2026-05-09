@@ -18,16 +18,42 @@ export type QuickSlot = {
   bookingDate: string;
   startTime: string;
   endTime: string;
+  maxPlayers: number;
+  currentBookings: number;
 };
 
 export type QuickSlotPayload = {
   bookingDate: string;
   startTime: string;
   endTime: string;
+  maxPlayers?: number;
 };
 
 export type PublicBookingSettings = {
   depositAmount: number;
+};
+
+export type ShopItem = {
+  id: number;
+  name: string;
+  imageUrl?: string | null;
+  imagePublicId?: string | null;
+  priceLabel?: string | null;
+  link?: string | null;
+  displayOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ShopItemPayload = {
+  name: string;
+  imageUrl?: string | null;
+  imagePublicId?: string | null;
+  priceLabel?: string | null;
+  link?: string | null;
+  displayOrder?: number;
+  isActive?: boolean;
 };
 
 export type EquipmentItem = {

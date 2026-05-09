@@ -9,9 +9,14 @@ import { PaymentController } from './payment.controller';
 import { SettingsModule } from '../settings/settings.module';
 import { PlaySession } from '../play-sessions/entities/play-session.entity';
 import { PlaySessionPlayer } from '../play-sessions/entities/play-session-player.entity';
+import { QuickSlot } from '../quick-slots/entities/quick-slot.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Booking, PlaySession, PlaySessionPlayer]), CourtsModule, SettingsModule],
+  imports: [
+    TypeOrmModule.forFeature([Booking, PlaySession, PlaySessionPlayer, QuickSlot]),
+    CourtsModule,
+    SettingsModule,
+  ],
   controllers: [BookingsController, PaymentController],
   providers: [BookingsService, CloudinaryService],
   exports: [BookingsService],

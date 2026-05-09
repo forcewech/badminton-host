@@ -23,9 +23,17 @@ export class CloudinaryService {
     });
   }
 
-  async uploadCustomerPhoto(file: UploadFileShape) {
+  uploadCustomerPhoto(file: UploadFileShape) {
+    return this.uploadImage(file, "badminton-customers");
+  }
+
+  uploadShopImage(file: UploadFileShape) {
+    return this.uploadImage(file, "badminton-shop");
+  }
+
+  async uploadImage(file: UploadFileShape, folder: string) {
     if (!file?.buffer) {
-      throw new BadRequestException("Customer photo file is required.");
+      throw new BadRequestException("Image file is required.");
     }
 
     if (!file.mimetype?.startsWith("image/")) {
@@ -41,14 +49,14 @@ export class CloudinaryService {
     return new Promise<{ url: string; publicId: string }>((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
-          folder: "badminton-customers",
+          folder,
           resource_type: "image",
         },
         (error, result) => {
           if (error || !result) {
             reject(
               new InternalServerErrorException(
-                error?.message ?? "Customer photo upload failed.",
+                error?.message ?? "Image upload failed.",
               ),
             );
             return;
@@ -73,7 +81,11 @@ export class CloudinaryService {
     });
   }
 
-  async deleteCustomerPhoto(publicId: string) {
+  deleteCustomerPhoto(publicId: string) {
+    return this.deleteImage(publicId);
+  }
+
+  async deleteImage(publicId: string) {
     if (!publicId || !this.hasCloudinaryConfig()) {
       return;
     }

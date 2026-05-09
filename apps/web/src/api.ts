@@ -15,6 +15,8 @@ import type {
   PublicBookingSettings,
   QuickSlot,
   QuickSlotPayload,
+  ShopItem,
+  ShopItemPayload,
   StartMatchPayload,
 } from './types';
 
@@ -75,6 +77,11 @@ export const api = {
     request<QuickSlot>('/quick-slots', {
       method: 'POST',
       body: JSON.stringify(payload),
+    }),
+  updateQuickSlotMaxPlayers: (id: number, maxPlayers: number) =>
+    request<QuickSlot>(`/quick-slots/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ maxPlayers }),
     }),
   deleteQuickSlot: (id: number) =>
     request<{ id: number; deleted: boolean }>(`/quick-slots/${id}`, {
@@ -215,4 +222,27 @@ export const api = {
       '/admin/reset-past',
       { method: 'DELETE' },
     ),
+  getShopItemsAdmin: () => request<ShopItem[]>('/shop/admin/items'),
+  createShopItem: (payload: ShopItemPayload) =>
+    request<ShopItem>('/shop/items', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  updateShopItem: (id: number, payload: Partial<ShopItemPayload>) =>
+    request<ShopItem>(`/shop/items/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+  deleteShopItem: (id: number) =>
+    request<{ id: number; deleted: boolean }>(`/shop/items/${id}`, {
+      method: 'DELETE',
+    }),
+  uploadShopImage: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return request<{ url: string; publicId: string }>('/shop/items/upload-image', {
+      method: 'POST',
+      body: formData,
+    });
+  },
 };

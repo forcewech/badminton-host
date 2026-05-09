@@ -3,6 +3,7 @@ import type {
   PublicBookingResponse,
   PublicPaymentStatus,
   QuickSlot,
+  ShopItem,
 } from "./types";
 
 function getDefaultApiUrl() {
@@ -16,6 +17,14 @@ function getDefaultApiUrl() {
 
 const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
 const API_URL = configuredApiUrl || getDefaultApiUrl();
+
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const isFormDataBody = init?.body instanceof FormData;
@@ -31,7 +40,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const body = await response
       .json()
       .catch(() => ({ message: "Yêu cầu thất bại." }));
-    throw new Error(body.message ?? "Yêu cầu thất bại.");
+    throw new ApiError(body.message ?? "Yêu cầu thất bại.", response.status);
   }
 
   return response.json() as Promise<T>;
@@ -56,4 +65,5 @@ export const api = {
     request<PublicPaymentStatus>(`/bookings/public/${reference}/status`),
   getQuickSlots: (date: string) =>
     request<QuickSlot[]>(`/quick-slots?date=${encodeURIComponent(date)}`),
+  getShopItems: () => request<ShopItem[]>("/shop/items"),
 };

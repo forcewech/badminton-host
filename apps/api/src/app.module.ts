@@ -23,6 +23,8 @@ import { PlaySessionPlayer } from './play-sessions/entities/play-session-player.
 import { PlaySessionMatch } from './play-sessions/entities/play-session-match.entity';
 import { PlaySessionsModule } from './play-sessions/play-sessions.module';
 import { AdminModule } from './admin/admin.module';
+import { ShopItem } from './shop/entities/shop-item.entity';
+import { ShopModule } from './shop/shop.module';
 
 @Module({
   imports: [
@@ -51,7 +53,7 @@ import { AdminModule } from './admin/admin.module';
           type: 'postgres' as const,
           url: databaseUrl,
           ssl: sslEnabled ? { rejectUnauthorized } : false,
-          entities: [AppSetting, Booking, Court, EquipmentItem, QuickSlot, PlaySession, PlaySessionPlayer, PlaySessionMatch],
+          entities: [AppSetting, Booking, Court, EquipmentItem, QuickSlot, PlaySession, PlaySessionPlayer, PlaySessionMatch, ShopItem],
           synchronize,
         };
       },
@@ -66,6 +68,7 @@ import { AdminModule } from './admin/admin.module';
     SettingsModule,
     PlaySessionsModule,
     AdminModule,
+    ShopModule,
     SeedModule,
   ],
   providers: [

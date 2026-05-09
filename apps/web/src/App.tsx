@@ -13,6 +13,7 @@ import type {
   PlayerSkillLevel,
   PublicBookingSettings,
   QuickSlot,
+  ShopItem,
   SkillLevel,
   TeamOption,
 } from "./types";
@@ -84,6 +85,11 @@ const mainSectionTabs = [
     id: "coordination",
     label: "Điều phối",
     description: "Ghép cặp và điều phối buổi chơi",
+  },
+  {
+    id: "shop",
+    label: "Cửa hàng",
+    description: "Quản lý sản phẩm hiển thị ở màn chuyển khoản",
   },
 ] as const;
 
@@ -336,6 +342,7 @@ export default function App() {
   const [quickSlotDraft, setQuickSlotDraft] = useState({
     startTime: "19:00",
     endTime: "21:00",
+    maxPlayers: 12,
   });
   const [selectedDate, setSelectedDate] = useState<string>(() =>
     getLocalDateInputValue(),
@@ -412,6 +419,29 @@ export default function App() {
   const [isSlotsLoading, setIsSlotsLoading] = useState(false);
   const [slotCourtCounts, setSlotCourtCounts] = useState<Record<string, number>>({});
   const isBoardMode = boardModeId !== null;
+
+  const [shopItems, setShopItems] = useState<ShopItem[]>([]);
+  const [editingShopItem, setEditingShopItem] = useState<ShopItem | null>(null);
+  const [shopFormDraft, setShopFormDraft] = useState<{
+    name: string;
+    imageUrl: string;
+    imagePublicId: string;
+    priceLabel: string;
+    link: string;
+    displayOrder: number;
+    isActive: boolean;
+  }>({
+    name: "",
+    imageUrl: "",
+    imagePublicId: "",
+    priceLabel: "",
+    link: "",
+    displayOrder: 0,
+    isActive: true,
+  });
+  const [isShopFormOpen, setIsShopFormOpen] = useState(false);
+  const [isShopSubmitting, setIsShopSubmitting] = useState(false);
+  const [isShopImageUploading, setIsShopImageUploading] = useState(false);
   // ─────────────────────────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -613,6 +643,11 @@ export default function App() {
   }, [authSession, selectedDate]);
 
   useEffect(() => {
+    if (!authSession || activeSectionTab !== "shop") return;
+    void loadShopItems();
+  }, [authSession, activeSectionTab]);
+
+  useEffect(() => {
     if (quickSlots.length === 0) {
       return;
     }
@@ -808,6 +843,7 @@ export default function App() {
         bookingDate: selectedDate,
         startTime: quickSlotDraft.startTime,
         endTime: quickSlotDraft.endTime,
+        maxPlayers: quickSlotDraft.maxPlayers,
       });
       await Promise.all([
         loadSlotManagementQuickSlots(selectedDate),
@@ -824,6 +860,22 @@ export default function App() {
       );
     } finally {
       setIsQuickSlotSubmitting(false);
+    }
+  }
+
+  async function handleQuickSlotMaxPlayersUpdate(id: number, maxPlayers: number) {
+    if (maxPlayers < 1 || maxPlayers > 100) return;
+    try {
+      await api.updateQuickSlotMaxPlayers(id, maxPlayers);
+      await Promise.all([
+        loadSlotManagementQuickSlots(selectedDate),
+        form.bookingDate === selectedDate
+          ? loadQuickSlots(selectedDate)
+          : Promise.resolve(),
+      ]);
+      toast.success("Đã cập nhật số người tối đa.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Không thể cập nhật số người tối đa");
     }
   }
 
@@ -888,6 +940,122 @@ export default function App() {
           ? actionError.message
           : "Check-in thất bại",
       );
+    }
+  }
+
+  async function loadShopItems() {
+    try {
+      const items = await api.getShopItemsAdmin();
+      setShopItems(items);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Không thể tải danh sách shop");
+    }
+  }
+
+  function resetShopFormDraft() {
+    setShopFormDraft({
+      name: "",
+      imageUrl: "",
+      imagePublicId: "",
+      priceLabel: "",
+      link: "",
+      displayOrder: shopItems.length,
+      isActive: true,
+    });
+    setEditingShopItem(null);
+  }
+
+  function openShopFormForCreate() {
+    resetShopFormDraft();
+    setIsShopFormOpen(true);
+  }
+
+  function openShopFormForEdit(item: ShopItem) {
+    setEditingShopItem(item);
+    setShopFormDraft({
+      name: item.name,
+      imageUrl: item.imageUrl ?? "",
+      imagePublicId: item.imagePublicId ?? "",
+      priceLabel: item.priceLabel ?? "",
+      link: item.link ?? "",
+      displayOrder: item.displayOrder,
+      isActive: item.isActive,
+    });
+    setIsShopFormOpen(true);
+  }
+
+  function closeShopForm() {
+    setIsShopFormOpen(false);
+    resetShopFormDraft();
+  }
+
+  async function handleShopImageUpload(file: File | null) {
+    if (!file) return;
+    setIsShopImageUploading(true);
+    try {
+      const result = await api.uploadShopImage(file);
+      setShopFormDraft((d) => ({
+        ...d,
+        imageUrl: result.url,
+        imagePublicId: result.publicId,
+      }));
+      toast.success("Đã tải ảnh sản phẩm.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Không thể tải ảnh");
+    } finally {
+      setIsShopImageUploading(false);
+    }
+  }
+
+  async function handleShopSubmit() {
+    if (!shopFormDraft.name.trim()) {
+      toast.error("Vui lòng nhập tên sản phẩm.");
+      return;
+    }
+    setIsShopSubmitting(true);
+    try {
+      const payload = {
+        name: shopFormDraft.name.trim(),
+        imageUrl: shopFormDraft.imageUrl || null,
+        imagePublicId: shopFormDraft.imagePublicId || null,
+        priceLabel: shopFormDraft.priceLabel.trim() || null,
+        link: shopFormDraft.link.trim() || null,
+        displayOrder: shopFormDraft.displayOrder,
+        isActive: shopFormDraft.isActive,
+      };
+      if (editingShopItem) {
+        await api.updateShopItem(editingShopItem.id, payload);
+        toast.success("Đã cập nhật sản phẩm.");
+      } else {
+        await api.createShopItem(payload);
+        toast.success("Đã thêm sản phẩm.");
+      }
+      await loadShopItems();
+      closeShopForm();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Lưu sản phẩm thất bại");
+    } finally {
+      setIsShopSubmitting(false);
+    }
+  }
+
+  async function handleShopDelete(id: number) {
+    if (!window.confirm("Xóa sản phẩm này?")) return;
+    try {
+      await api.deleteShopItem(id);
+      await loadShopItems();
+      toast("Đã xóa sản phẩm.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Xóa sản phẩm thất bại");
+    }
+  }
+
+  async function handleShopToggleActive(item: ShopItem) {
+    try {
+      await api.updateShopItem(item.id, { isActive: !item.isActive });
+      await loadShopItems();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Cập nhật trạng thái thất bại");
     }
   }
 
@@ -1211,95 +1379,114 @@ export default function App() {
 
   function renderAssignedBookingCard(
     booking: Booking,
-    className = "booking-card",
+    _className = "booking-card",
   ) {
+    void _className;
+    const avatar = getAvatarColor(booking.customerName);
+    const isCheckedIn =
+      booking.status === "CHECKED_IN" || booking.status === "COMPLETED";
+    const isNoShow = booking.status === "NO_SHOW";
+    const isFemale = booking.gender === "FEMALE";
+
     return (
-      <article
+      <div
         key={booking.id}
-        className={`${className} booking-card-clickable ${booking.gender === "FEMALE" ? "booking-card-female" : ""}`}
+        className="racket-row"
         onClick={() => setDetailBooking(booking)}
+        style={{
+          background: isFemale ? "#fdf2f8" : "#fff",
+        }}
       >
-        <div className="booking-card-top">
-          <div>
-            <h3>{booking.customerName}</h3>
-            <p>
-              {booking.bookingDate} - {booking.startTime} đến {booking.endTime}
-            </p>
-          </div>
-          <span className={`status status-${booking.status.toLowerCase()}`}>
-            {booking.status}
-          </span>
+        <div
+          className="racket-row-avatar"
+          style={{ background: avatar.bg, color: avatar.fg }}
+        >
+          {getPlayerInitials(booking.customerName)}
         </div>
 
-        <div className="booking-meta">
-          {booking.customerPhone ? <span>{booking.customerPhone}</span> : null}
-          <span>{getGenderLabel(booking.gender)}</span>
-          <span>{getSkillLevelLabel(booking.skillLevel)}</span>
-          <span>
-            Cọc {booking.depositPaid ? "đã thanh toán" : "đang chờ"} (
-            {formatCurrencyDisplay(booking.depositAmount)})
-          </span>
-          <span>
-            Thanh toán đủ{" "}
-            {booking.fullPaymentTransferred ? "đã xác nhận" : "đang chờ"}
-          </span>
+        <div className="racket-row-info">
+          <div className="racket-row-name">{booking.customerName}</div>
+          <div className="racket-row-meta">
+            <span className="racket-row-skill">
+              {getSkillLevelLabel(booking.skillLevel)}
+            </span>
+            <span>·</span>
+            <span>
+              {booking.startTime}–{booking.endTime}
+            </span>
+            {booking.fullPaymentTransferred ? (
+              <>
+                <span>·</span>
+                <span style={{ color: "#15803d", fontWeight: 500 }}>
+                  ✓ Đã TT đủ
+                </span>
+              </>
+            ) : null}
+          </div>
         </div>
 
-        {booking.notes ? (
-          <div className="booking-note">
-            <strong>Ghi chú:</strong> {booking.notes}
-          </div>
-        ) : null}
+        <span
+          className={`status status-${booking.status.toLowerCase()}`}
+          style={{ fontSize: 11, padding: "3px 8px", flexShrink: 0 }}
+        >
+          {booking.status}
+        </span>
 
         <div
-          className="booking-actions"
+          className="racket-row-actions"
           onClick={(event) => event.stopPropagation()}
         >
           <button
             type="button"
-            className="primary-button"
-            disabled={
-              booking.status === "CHECKED_IN" ||
-              booking.status === "COMPLETED" ||
-              booking.status === "NO_SHOW"
-            }
+            title="Check-in"
+            className="racket-row-icon-btn racket-row-icon-checkin"
+            disabled={isCheckedIn || isNoShow}
             onClick={() => handleCheckIn(booking.id)}
           >
-            Check-in
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 6L9 17l-5-5" />
+            </svg>
           </button>
+
           <button
             type="button"
-            className="success-button"
-            disabled={
-              booking.status !== "CHECKED_IN" || booking.fullPaymentTransferred
-            }
+            title="Xác nhận thanh toán đủ"
+            className="racket-row-icon-btn racket-row-icon-paid"
+            disabled={booking.status !== "CHECKED_IN" || booking.fullPaymentTransferred}
             onClick={() => handleFullPayment(booking.id)}
           >
-            Xác nhận thanh toán đủ
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="6" width="20" height="12" rx="2" />
+              <circle cx="12" cy="12" r="2.5" />
+              <path d="M6 10v.01M18 14v.01" />
+            </svg>
           </button>
+
           <button
             type="button"
-            className="warning-button"
-            disabled={
-              !booking.depositPaid ||
-              booking.status === "CHECKED_IN" ||
-              booking.status === "COMPLETED" ||
-              booking.status === "NO_SHOW"
-            }
+            title="Không đến"
+            className="racket-row-icon-btn racket-row-icon-noshow"
+            disabled={!booking.depositPaid || isCheckedIn || isNoShow}
             onClick={() => handleNoShow(booking.id)}
           >
-            Không đến
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
           </button>
+
           <button
             type="button"
-            className="ghost-button"
+            title="Xóa đặt sân"
+            className="racket-row-icon-btn racket-row-icon-delete"
             onClick={() => handleDeleteBooking(booking.id)}
           >
-            Xóa đặt sân
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" />
+              <path d="M10 11v6M14 11v6" />
+            </svg>
           </button>
         </div>
-
-      </article>
+      </div>
     );
   }
 
@@ -1370,27 +1557,12 @@ export default function App() {
     });
 
   async function exportHistoryToExcel() {
-    const exportBookings = sortBookingsStable(
-      bookings
-        .filter((booking) => booking.bookingDate === selectedDate)
-        .filter((booking) =>
-          booking.customerName
-            .toLowerCase()
-            .includes(searchTerm.trim().toLowerCase()),
-        )
-        .filter((booking) => {
-          if (transferFilter === "paid") return booking.fullPaymentTransferred;
-          if (transferFilter === "unpaid") return !booking.fullPaymentTransferred;
-          return true;
-        })
-        .filter((booking) => {
-          if (participationFilter === "checked_in")
-            return booking.status === "CHECKED_IN" || booking.status === "COMPLETED";
-          if (participationFilter === "no_show")
-            return booking.status === "NO_SHOW";
-          return true;
-        }),
-    );
+    const exportBookings = filteredRacketPlayerBookings;
+
+    if (exportBookings.length === 0) {
+      toast.error("Không có dữ liệu phù hợp với bộ lọc để xuất.");
+      return;
+    }
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("QuảnLýSân");
@@ -2464,6 +2636,23 @@ export default function App() {
                     </label>
                   </div>
 
+                  <label>
+                    Số người tối đa
+                    <input
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={quickSlotDraft.maxPlayers}
+                      onChange={(event) =>
+                        setQuickSlotDraft({
+                          ...quickSlotDraft,
+                          maxPlayers: Math.max(1, Number(event.target.value) || 1),
+                        })
+                      }
+                      required
+                    />
+                  </label>
+
                   <div className="quick-slot-admin-actions">
                     <button
                       type="button"
@@ -2493,23 +2682,50 @@ export default function App() {
                       Chưa có khung giờ nào cho ngày này.
                     </p>
                   ) : (
-                    slotManagementSlots.map((slot) => (
-                      <div key={slot.id} className="quick-slot-admin-item">
-                        <div>
-                          <strong>
-                            {formatQuickSlotLabel(slot.startTime, slot.endTime)}
-                          </strong>
-                          <small>{slot.bookingDate}</small>
+                    slotManagementSlots.map((slot) => {
+                      const isFull = slot.currentBookings >= slot.maxPlayers;
+                      return (
+                        <div key={slot.id} className="quick-slot-admin-item">
+                          <div>
+                            <strong>
+                              {formatQuickSlotLabel(slot.startTime, slot.endTime)}
+                            </strong>
+                            <small>
+                              {slot.bookingDate} ·{" "}
+                              <span style={{ color: isFull ? "#b91c1c" : "#6b7280", fontWeight: 500 }}>
+                                {slot.currentBookings}/{slot.maxPlayers} người
+                                {isFull ? " (đã đủ)" : ""}
+                              </span>
+                            </small>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#6b7280" }}>
+                              Tối đa
+                              <input
+                                type="number"
+                                min={1}
+                                max={100}
+                                defaultValue={slot.maxPlayers}
+                                onBlur={(e) => {
+                                  const v = Math.max(1, Number(e.target.value) || 1);
+                                  if (v !== slot.maxPlayers) {
+                                    void handleQuickSlotMaxPlayersUpdate(slot.id, v);
+                                  }
+                                }}
+                                style={{ width: 70 }}
+                              />
+                            </label>
+                            <button
+                              type="button"
+                              className="ghost-button"
+                              onClick={() => void handleQuickSlotDelete(slot.id)}
+                            >
+                              Xóa
+                            </button>
+                          </div>
                         </div>
-                        <button
-                          type="button"
-                          className="ghost-button"
-                          onClick={() => void handleQuickSlotDelete(slot.id)}
-                        >
-                          Xóa
-                        </button>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </article>
@@ -3491,6 +3707,252 @@ export default function App() {
             </section>
           )}
         </section>
+      ) : null}
+
+      {activeSectionTab === "shop" ? (
+        <section className="panel">
+          <div className="panel-head">
+            <div>
+              <p className="panel-tag">Cửa hàng</p>
+              <h2>Sản phẩm hiển thị ở màn chuyển khoản</h2>
+            </div>
+            <button
+              type="button"
+              className="primary-button"
+              onClick={openShopFormForCreate}
+            >
+              + Thêm sản phẩm
+            </button>
+          </div>
+
+          {shopItems.length === 0 ? (
+            <p className="empty-state">Chưa có sản phẩm nào.</p>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
+              {shopItems.map((item) => (
+                <div
+                  key={item.id}
+                  style={{
+                    background: "#fff",
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 12,
+                    overflow: "hidden",
+                    opacity: item.isActive ? 1 : 0.55,
+                  }}
+                >
+                  <div style={{ aspectRatio: "1 / 1", background: "#f3f4f6", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                    {item.imageUrl ? (
+                      <img
+                        src={getDisplayPhotoUrl(item.imageUrl)}
+                        alt={item.name}
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      />
+                    ) : (
+                      <span style={{ color: "#9ca3af", fontSize: 13 }}>Chưa có ảnh</span>
+                    )}
+                  </div>
+                  <div style={{ padding: "10px 12px" }}>
+                    <p style={{ margin: 0, fontWeight: 600, fontSize: 14 }}>{item.name}</p>
+                    {item.priceLabel ? (
+                      <p style={{ margin: "2px 0 0", fontSize: 13, color: "#7c3aed" }}>{item.priceLabel}</p>
+                    ) : null}
+                    <p style={{ margin: "4px 0 0", fontSize: 12, color: "#9ca3af" }}>
+                      Thứ tự: {item.displayOrder}
+                      {!item.isActive ? " · Đang tắt" : ""}
+                    </p>
+                    <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        style={{ fontSize: 12, padding: "4px 8px" }}
+                        onClick={() => openShopFormForEdit(item)}
+                      >
+                        Sửa
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        style={{ fontSize: 12, padding: "4px 8px" }}
+                        onClick={() => void handleShopToggleActive(item)}
+                      >
+                        {item.isActive ? "Tắt" : "Bật"}
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        style={{ fontSize: 12, padding: "4px 8px", color: "#dc2626" }}
+                        onClick={() => void handleShopDelete(item.id)}
+                      >
+                        Xóa
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      ) : null}
+
+      {isShopFormOpen ? (
+        <div className="modal-backdrop" role="presentation" onClick={closeShopForm}>
+          <div
+            className="modal-card shop-form-modal"
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="shop-form-head">
+              <div>
+                <p className="panel-tag">{editingShopItem ? "Sửa sản phẩm" : "Thêm sản phẩm"}</p>
+                <h2>{editingShopItem ? editingShopItem.name : "Sản phẩm mới"}</h2>
+              </div>
+              <button
+                type="button"
+                className="shop-form-close"
+                onClick={closeShopForm}
+                aria-label="Đóng"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
+            </header>
+
+            <div className="shop-form-body">
+              <div className="shop-form-section">
+                <p className="shop-form-section-label">Hình ảnh</p>
+                <label className="shop-image-uploader">
+                  {shopFormDraft.imageUrl ? (
+                    <img
+                      src={getDisplayPhotoUrl(shopFormDraft.imageUrl)}
+                      alt="Preview"
+                      className="shop-image-preview"
+                    />
+                  ) : (
+                    <div className="shop-image-placeholder">
+                      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <rect x="3" y="3" width="18" height="18" rx="2" />
+                        <circle cx="8.5" cy="8.5" r="1.5" />
+                        <path d="M21 15l-5-5L5 21" />
+                      </svg>
+                      <p>{isShopImageUploading ? "Đang tải lên..." : "Nhấn để chọn ảnh"}</p>
+                      <small>JPG, PNG · khuyến nghị vuông 1:1</small>
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => void handleShopImageUpload(e.target.files?.[0] ?? null)}
+                    style={{ display: "none" }}
+                  />
+                </label>
+                {shopFormDraft.imageUrl ? (
+                  <div className="shop-image-actions">
+                    <label className="shop-image-replace-btn">
+                      Đổi ảnh
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => void handleShopImageUpload(e.target.files?.[0] ?? null)}
+                        style={{ display: "none" }}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      className="shop-image-remove-btn"
+                      onClick={() => setShopFormDraft((d) => ({ ...d, imageUrl: "", imagePublicId: "" }))}
+                    >
+                      Xóa ảnh
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="shop-form-section">
+                <p className="shop-form-section-label">Thông tin sản phẩm</p>
+                <div className="shop-form-fields">
+                  <label className="shop-form-field">
+                    <span>Tên sản phẩm <em>*</em></span>
+                    <input
+                      value={shopFormDraft.name}
+                      onChange={(e) => setShopFormDraft((d) => ({ ...d, name: e.target.value }))}
+                      placeholder="Ví dụ: Vợt Hellokitty 2xx"
+                      required
+                    />
+                  </label>
+
+                  <label className="shop-form-field">
+                    <span>Giá / Nhãn</span>
+                    <input
+                      value={shopFormDraft.priceLabel}
+                      onChange={(e) => setShopFormDraft((d) => ({ ...d, priceLabel: e.target.value }))}
+                      placeholder="Ví dụ: 290k, S80, 1.2tr..."
+                    />
+                  </label>
+
+                  <label className="shop-form-field">
+                    <span>Link affiliate</span>
+                    <input
+                      type="url"
+                      value={shopFormDraft.link}
+                      onChange={(e) => setShopFormDraft((d) => ({ ...d, link: e.target.value }))}
+                      placeholder="https://..."
+                    />
+                  </label>
+                </div>
+              </div>
+
+              <div className="shop-form-section">
+                <p className="shop-form-section-label">Hiển thị</p>
+                <div className="shop-form-display-row">
+                  <label className="shop-form-field shop-form-field-compact">
+                    <span>Thứ tự</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={shopFormDraft.displayOrder}
+                      onChange={(e) => setShopFormDraft((d) => ({ ...d, displayOrder: Number(e.target.value) || 0 }))}
+                    />
+                  </label>
+
+                  <label className="shop-form-toggle">
+                    <input
+                      type="checkbox"
+                      checked={shopFormDraft.isActive}
+                      onChange={(e) => setShopFormDraft((d) => ({ ...d, isActive: e.target.checked }))}
+                    />
+                    <span className="shop-form-toggle-track">
+                      <span className="shop-form-toggle-thumb" />
+                    </span>
+                    <span className="shop-form-toggle-text">
+                      <strong>Hiện trên web khách</strong>
+                      <small>{shopFormDraft.isActive ? "Đang bật" : "Đang tắt — khách không nhìn thấy"}</small>
+                    </span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <footer className="shop-form-footer">
+              <button type="button" className="ghost-button" onClick={closeShopForm}>
+                Hủy
+              </button>
+              <button
+                type="button"
+                className="primary-button"
+                disabled={isShopSubmitting || isShopImageUploading}
+                onClick={() => void handleShopSubmit()}
+              >
+                {isShopSubmitting
+                  ? "Đang lưu..."
+                  : editingShopItem
+                    ? "Lưu thay đổi"
+                    : "Thêm sản phẩm"}
+              </button>
+            </footer>
+          </div>
+        </div>
       ) : null}
 
       {fullscreenPhotoUrl ? (

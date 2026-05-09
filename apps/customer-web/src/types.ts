@@ -13,6 +13,8 @@ export type QuickSlot = {
   bookingDate: string;
   startTime: string;
   endTime: string;
+  maxPlayers: number;
+  currentBookings: number;
 };
 
 export type PublicBookingPayload = {
@@ -51,6 +53,16 @@ export type PublicBookingResponse = {
     isConfigured: boolean;
     expiresAt?: string | null;
   };
+};
+
+export type ShopItem = {
+  id: number;
+  name: string;
+  imageUrl?: string | null;
+  priceLabel?: string | null;
+  link?: string | null;
+  displayOrder: number;
+  isActive: boolean;
 };
 
 export type PublicPaymentStatus = {

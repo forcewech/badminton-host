@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   Logger,
   NotFoundException,
@@ -7,8 +8,8 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Cron, CronExpression } from "@nestjs/schedule";
-import { InjectRepository } from "@nestjs/typeorm";
-import { LessThan, Repository } from "typeorm";
+import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
+import { DataSource, LessThan, Not, Repository } from "typeorm";
 import { BookingStatus } from "../common/enums/booking-status.enum";
 import { CourtsService } from "../courts/courts.service";
 import { AssignCourtDto } from "./dto/assign-court.dto";
@@ -21,6 +22,7 @@ import { CloudinaryService } from "./cloudinary.service";
 import { SettingsService } from "../settings/settings.service";
 import { PlaySession } from "../play-sessions/entities/play-session.entity";
 import { PlaySessionPlayer } from "../play-sessions/entities/play-session-player.entity";
+import { QuickSlot } from "../quick-slots/entities/quick-slot.entity";
 
 @Injectable()
 export class BookingsService {
@@ -37,6 +39,8 @@ export class BookingsService {
     private readonly cloudinaryService: CloudinaryService,
     private readonly configService: ConfigService,
     private readonly settingsService: SettingsService,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
   ) {}
 
   findAll() {
@@ -82,26 +86,60 @@ export class BookingsService {
       createPublicBookingDto.endTime,
     );
 
-    const booking = this.bookingsRepository.create({
-      customerName: createPublicBookingDto.customerName,
-      customerPhone: createPublicBookingDto.customerPhone?.trim() ?? "",
-      gender: createPublicBookingDto.gender,
-      skillLevel: createPublicBookingDto.skillLevel,
-      bookingDate: createPublicBookingDto.bookingDate,
-      startTime: createPublicBookingDto.startTime,
-      endTime: createPublicBookingDto.endTime,
-      depositAmount: await this.getDefaultDepositAmount(),
-      depositPaid: false,
-      depositExpiresAt: this.getDepositExpiryIso(),
-      notes: createPublicBookingDto.notes ?? "",
-      photoUrl: createPublicBookingDto.photoUrl ?? null,
-      photoPublicId: createPublicBookingDto.photoPublicId ?? null,
-      status: BookingStatus.PENDING,
-      court: null,
-      matchTracking: Array(7).fill(false),
-    });
+    const depositAmount = await this.getDefaultDepositAmount();
+    const depositExpiresAt = this.getDepositExpiryIso();
 
-    const savedBooking = await this.bookingsRepository.save(booking);
+    const savedBooking = await this.dataSource.transaction(
+      "SERIALIZABLE",
+      async (manager) => {
+        const slot = await manager.findOne(QuickSlot, {
+          where: {
+            bookingDate: createPublicBookingDto.bookingDate,
+            startTime: createPublicBookingDto.startTime,
+            endTime: createPublicBookingDto.endTime,
+          },
+        });
+
+        if (slot) {
+          const currentBookings = await manager.count(Booking, {
+            where: {
+              bookingDate: createPublicBookingDto.bookingDate,
+              startTime: createPublicBookingDto.startTime,
+              endTime: createPublicBookingDto.endTime,
+              status: Not(BookingStatus.CANCELLED),
+            },
+          });
+
+          if (currentBookings >= slot.maxPlayers) {
+            throw new ConflictException(
+              "Khung giờ này vừa được đặt hết. Vui lòng chọn khung giờ khác.",
+            );
+          }
+        }
+
+        const booking = manager.create(Booking, {
+          customerName: createPublicBookingDto.customerName,
+          customerPhone: createPublicBookingDto.customerPhone?.trim() ?? "",
+          gender: createPublicBookingDto.gender,
+          skillLevel: createPublicBookingDto.skillLevel,
+          bookingDate: createPublicBookingDto.bookingDate,
+          startTime: createPublicBookingDto.startTime,
+          endTime: createPublicBookingDto.endTime,
+          depositAmount,
+          depositPaid: false,
+          depositExpiresAt,
+          notes: createPublicBookingDto.notes ?? "",
+          photoUrl: createPublicBookingDto.photoUrl ?? null,
+          photoPublicId: createPublicBookingDto.photoPublicId ?? null,
+          status: BookingStatus.PENDING,
+          court: null,
+          matchTracking: Array(7).fill(false),
+        });
+
+        return manager.save(booking);
+      },
+    );
+
     await this.syncSessionPlayerFromBooking(savedBooking);
     const bookingWithReference =
       await this.ensureDepositReference(savedBooking);

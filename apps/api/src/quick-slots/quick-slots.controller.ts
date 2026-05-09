@@ -1,6 +1,7 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
 import { Public } from '../auth/public.decorator';
 import { CreateQuickSlotDto } from './dto/create-quick-slot.dto';
+import { UpdateQuickSlotDto } from './dto/update-quick-slot.dto';
 import { QuickSlotsService } from './quick-slots.service';
 
 @Controller('quick-slots')
@@ -16,6 +17,14 @@ export class QuickSlotsController {
   @Post()
   create(@Body() createQuickSlotDto: CreateQuickSlotDto) {
     return this.quickSlotsService.create(createQuickSlotDto);
+  }
+
+  @Patch(':id')
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateQuickSlotDto,
+  ) {
+    return this.quickSlotsService.update(id, dto);
   }
 
   @Delete(':id')

@@ -14,4 +14,7 @@ export class QuickSlot {
 
   @Column()
   endTime!: string;
+
+  @Column({ type: 'int', default: 12 })
+  maxPlayers!: number;
 }

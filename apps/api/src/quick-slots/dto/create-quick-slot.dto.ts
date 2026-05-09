@@ -1,4 +1,4 @@
-import { IsDateString, Matches } from 'class-validator';
+import { IsDateString, IsInt, IsOptional, Matches, Max, Min } from 'class-validator';
 
 export class CreateQuickSlotDto {
   @IsDateString()
@@ -9,4 +9,10 @@ export class CreateQuickSlotDto {
 
   @Matches(/^\d{2}:\d{2}$/)
   endTime!: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  maxPlayers?: number;
 }
