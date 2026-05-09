@@ -121,7 +121,7 @@ export const api = {
       body: formData,
     });
   },
-  assignCourt: (id: number, courtId: number) =>
+  assignCourt: (id: number, courtId: number | null) =>
     request<Booking>(`/bookings/${id}/assign-court`, {
       method: 'PATCH',
       body: JSON.stringify({ courtId }),

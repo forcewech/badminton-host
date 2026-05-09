@@ -152,9 +152,12 @@ export class BookingsService {
 
   async assignCourt(id: number, assignCourtDto: AssignCourtDto) {
     const booking = await this.findById(id);
-    const court = await this.courtsService.findOne(assignCourtDto.courtId);
 
-    booking.court = court;
+    if (assignCourtDto.courtId == null) {
+      booking.court = null;
+    } else {
+      booking.court = await this.courtsService.findOne(assignCourtDto.courtId);
+    }
 
     return this.bookingsRepository.save(booking);
   }

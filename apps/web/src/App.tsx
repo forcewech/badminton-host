@@ -6,6 +6,8 @@ import type {
   AuthSession,
   Booking,
   BookingSlot,
+  Court,
+  CourtPayload,
   CreateBookingPayload,
   CustomerGender,
   DashboardOverview,
@@ -85,6 +87,16 @@ const mainSectionTabs = [
     id: "coordination",
     label: "Điều phối",
     description: "Ghép cặp và điều phối buổi chơi",
+  },
+  {
+    id: "courts",
+    label: "Quản lý sân",
+    description: "Quản lý sân cầu lông",
+  },
+  {
+    id: "court_assign",
+    label: "Phân sân",
+    description: "Phân khách hàng vào sân theo ngày",
   },
   {
     id: "shop",
@@ -314,6 +326,14 @@ export default function App() {
     window.location.hash = tab;
     setActiveSectionTabRaw(tab);
   }
+  const [isSectionTabsOpen, setIsSectionTabsOpen] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    return window.localStorage.getItem("section-tabs-open") !== "false";
+  });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("section-tabs-open", String(isSectionTabsOpen));
+  }, [isSectionTabsOpen]);
   const [authSession, setAuthSession] = useState<AuthSession | null>(() => {
     if (typeof window === "undefined") {
       return null;
@@ -419,6 +439,28 @@ export default function App() {
   const [isSlotsLoading, setIsSlotsLoading] = useState(false);
   const [slotCourtCounts, setSlotCourtCounts] = useState<Record<string, number>>({});
   const isBoardMode = boardModeId !== null;
+
+  // ── Courts management state ─────────────────────────────────────────────────
+  const [courts, setCourts] = useState<Court[]>([]);
+  const [isCourtFormOpen, setIsCourtFormOpen] = useState(false);
+  const [editingCourt, setEditingCourt] = useState<Court | null>(null);
+  const [courtFormDraft, setCourtFormDraft] = useState<CourtPayload>({
+    name: "",
+    zone: "",
+    hourlyRate: 0,
+    isActive: true,
+  });
+  const [isCourtSubmitting, setIsCourtSubmitting] = useState(false);
+
+  // ── Court assign filter state ───────────────────────────────────────────────
+  const [assignCourtFilter, setAssignCourtFilter] = useState<"all" | "unassigned" | "assigned">("all");
+  const [assignSlotFilter, setAssignSlotFilter] = useState<string>("all");
+  const [assignSearchTerm, setAssignSearchTerm] = useState<string>("");
+  const [assignSkillFilter, setAssignSkillFilter] = useState<SkillLevel | "all">("all");
+
+  useEffect(() => {
+    setAssignSlotFilter("all");
+  }, [selectedDate]);
 
   const [shopItems, setShopItems] = useState<ShopItem[]>([]);
   const [editingShopItem, setEditingShopItem] = useState<ShopItem | null>(null);
@@ -645,6 +687,12 @@ export default function App() {
   useEffect(() => {
     if (!authSession || activeSectionTab !== "shop") return;
     void loadShopItems();
+  }, [authSession, activeSectionTab]);
+
+  useEffect(() => {
+    if (!authSession) return;
+    if (activeSectionTab !== "courts" && activeSectionTab !== "court_assign") return;
+    void loadCourts();
   }, [authSession, activeSectionTab]);
 
   useEffect(() => {
@@ -924,16 +972,15 @@ export default function App() {
 
   async function handleCheckIn(id: number) {
     try {
-      await api.checkIn(id);
-      await loadData();
-      if (activeSession) {
-        try {
-          const updated = await api.getSession(activeSession.id);
-          setActiveSession(updated);
-          setSessions((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
-        } catch {}
-      }
+      const updated = await api.checkIn(id);
+      setBookings((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
       toast.success("Đã check-in khách.");
+      if (activeSession) {
+        void api.getSession(activeSession.id).then((s) => {
+          setActiveSession(s);
+          setSessions((prev) => prev.map((x) => (x.id === s.id ? s : x)));
+        }).catch(() => {});
+      }
     } catch (actionError) {
       setError(
         actionError instanceof Error
@@ -950,6 +997,261 @@ export default function App() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Không thể tải danh sách shop");
     }
+  }
+
+  // ── Courts handlers ─────────────────────────────────────────────────────────
+  async function loadCourts() {
+    try {
+      const data = await api.getCourts();
+      setCourts(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Không thể tải danh sách sân");
+    }
+  }
+
+  function openCourtFormForCreate() {
+    setEditingCourt(null);
+    setCourtFormDraft({ name: "", zone: "", hourlyRate: 0, isActive: true });
+    setIsCourtFormOpen(true);
+  }
+
+  function openCourtFormForRename(court: Court) {
+    setEditingCourt(court);
+    setCourtFormDraft({
+      name: court.name,
+      zone: court.zone,
+      hourlyRate: court.hourlyRate,
+      isActive: court.isActive,
+    });
+    setIsCourtFormOpen(true);
+  }
+
+  function closeCourtForm() {
+    setIsCourtFormOpen(false);
+    setEditingCourt(null);
+  }
+
+  async function handleCourtSubmit() {
+    if (!courtFormDraft.name.trim()) {
+      toast.error("Vui lòng nhập tên sân.");
+      return;
+    }
+    setIsCourtSubmitting(true);
+    try {
+      if (editingCourt) {
+        await api.updateCourt(editingCourt.id, {
+          name: courtFormDraft.name.trim(),
+        });
+        toast.success("Đã cập nhật tên sân.");
+      } else {
+        await api.createCourt({
+          name: courtFormDraft.name.trim(),
+          zone: "",
+          hourlyRate: 0,
+          isActive: true,
+        });
+        toast.success("Đã thêm sân.");
+      }
+      await loadCourts();
+      closeCourtForm();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Lưu sân thất bại");
+    } finally {
+      setIsCourtSubmitting(false);
+    }
+  }
+
+  async function handleAssignCourtToBooking(bookingId: number, courtId: number | null) {
+    try {
+      const updated = await api.assignCourt(bookingId, courtId);
+      setBookings((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
+      toast.success(courtId ? "Đã phân sân." : "Đã bỏ phân sân.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Phân sân thất bại");
+    }
+  }
+
+  async function exportCourtAssignmentToExcel() {
+    if (courts.length === 0) {
+      toast.error("Chưa có sân nào trong hệ thống.");
+      return;
+    }
+
+    const bookingsForDate = bookings
+      .filter((b) => b.bookingDate === selectedDate)
+      .filter((b) => b.depositPaid)
+      .filter((b) => b.status !== "CANCELLED");
+
+    const assigned = bookingsForDate.filter((b) => b.court);
+    if (assigned.length === 0) {
+      toast.error("Chưa có khách nào được phân sân.");
+      return;
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("PhanSan");
+
+    // Collect all unique slots from bookings
+    const slots = Array.from(
+      new Map(
+        bookingsForDate.map((b) => [
+          `${b.startTime}|${b.endTime}`,
+          { startTime: b.startTime, endTime: b.endTime },
+        ]),
+      ).values(),
+    ).sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+    const sortedCourts = [...courts].sort((a, b) => a.name.localeCompare(b.name));
+    const totalCols = 1 + sortedCourts.length; // STT + courts
+
+    // Set widths: STT narrow, courts wide
+    worksheet.getColumn(1).width = 6;
+    for (let i = 0; i < sortedCourts.length; i++) {
+      worksheet.getColumn(i + 2).width = 22;
+    }
+
+    // Helper to convert col index (1-based) to Excel letter
+    const colLetter = (n: number) => {
+      let s = "";
+      while (n > 0) {
+        const m = (n - 1) % 26;
+        s = String.fromCharCode(65 + m) + s;
+        n = Math.floor((n - 1) / 26);
+      }
+      return s;
+    };
+
+    for (let slotIdx = 0; slotIdx < slots.length; slotIdx++) {
+      const slot = slots[slotIdx];
+      const slotLabel = `${slot.startTime} – ${slot.endTime}`;
+      const slotBookings = bookingsForDate.filter(
+        (b) => b.startTime === slot.startTime && b.endTime === slot.endTime,
+      );
+
+      // Slot title row (merged across all columns)
+      const titleRow = worksheet.addRow([`🕐 ${slotLabel}  (${slotBookings.length} khách)`]);
+      const titleRowNum = titleRow.number;
+      worksheet.mergeCells(`${colLetter(1)}${titleRowNum}:${colLetter(totalCols)}${titleRowNum}`);
+      const titleCell = worksheet.getCell(`${colLetter(1)}${titleRowNum}`);
+      titleCell.font = { bold: true, size: 13, color: { argb: "FF1E3A8A" } };
+      titleCell.alignment = { vertical: "middle", horizontal: "left" };
+      titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFC7D2FE" } };
+      titleRow.height = 22;
+
+      // Header row 1: court names (STT empty)
+      const headerRowA = worksheet.addRow(["", ...sortedCourts.map((c) => c.name)]);
+      headerRowA.eachCell({ includeEmpty: true }, (cell, colNum) => {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E3A8A" } };
+        cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 12 };
+        cell.alignment = { vertical: "middle", horizontal: "center" };
+        cell.border = {
+          top: { style: "thin", color: { argb: "FF93C5FD" } },
+          left: { style: "thin", color: { argb: "FF93C5FD" } },
+          right: { style: "thin", color: { argb: "FF93C5FD" } },
+          bottom: { style: "thin", color: { argb: "FF93C5FD" } },
+        };
+        if (colNum > totalCols) return;
+      });
+      headerRowA.height = 20;
+
+      // Header row 2: STT + "Tên" labels
+      const headerRowB = worksheet.addRow(["STT", ...sortedCourts.map(() => "Tên")]);
+      headerRowB.eachCell({ includeEmpty: true }, (cell) => {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF3F4F6" } };
+        cell.font = { bold: true, size: 11, color: { argb: "FF374151" } };
+        cell.alignment = { vertical: "middle", horizontal: "center" };
+        cell.border = {
+          top: { style: "thin", color: { argb: "FF93C5FD" } },
+          left: { style: "thin", color: { argb: "FF93C5FD" } },
+          right: { style: "thin", color: { argb: "FF93C5FD" } },
+          bottom: { style: "thin", color: { argb: "FF93C5FD" } },
+        };
+      });
+
+      // Build per-court booking lists
+      const courtToBookings: Booking[][] = sortedCourts.map((court) =>
+        sortBookingsStable(slotBookings.filter((b) => b.court?.id === court.id)),
+      );
+      const maxRows = Math.max(0, ...courtToBookings.map((list) => list.length));
+
+      for (let rowIdx = 0; rowIdx < maxRows; rowIdx++) {
+        const rowValues: (string | number)[] = [rowIdx + 1];
+        for (const list of courtToBookings) {
+          const booking = list[rowIdx];
+          rowValues.push(booking ? booking.customerName : "");
+        }
+        const row = worksheet.addRow(rowValues);
+        row.eachCell({ includeEmpty: true }, (cell, colNum) => {
+          cell.alignment = { vertical: "middle", horizontal: colNum === 1 ? "center" : "left" };
+          cell.border = {
+            top: { style: "thin", color: { argb: "FFDBEAFE" } },
+            left: { style: "thin", color: { argb: "FFDBEAFE" } },
+            right: { style: "thin", color: { argb: "FFDBEAFE" } },
+            bottom: { style: "thin", color: { argb: "FFDBEAFE" } },
+          };
+          if (colNum === 1) {
+            cell.font = { color: { argb: "FF6B7280" }, size: 11 };
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF9FAFB" } };
+          } else {
+            const courtIdx = colNum - 2;
+            const list = courtToBookings[courtIdx];
+            const booking = list?.[rowIdx];
+            if (booking && booking.gender === "FEMALE") {
+              cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFBCFE8" } };
+            }
+          }
+        });
+        row.height = 18;
+      }
+
+      // Unassigned section (rendered as a single column list under the table)
+      const unassigned = sortBookingsStable(slotBookings.filter((b) => !b.court));
+      if (unassigned.length > 0) {
+        const unaTitleRow = worksheet.addRow([`▶ Chưa phân sân (${unassigned.length} khách)`]);
+        const unaTitleNum = unaTitleRow.number;
+        worksheet.mergeCells(`${colLetter(1)}${unaTitleNum}:${colLetter(totalCols)}${unaTitleNum}`);
+        const unaCell = worksheet.getCell(`${colLetter(1)}${unaTitleNum}`);
+        unaCell.font = { bold: true, color: { argb: "FF92400E" }, size: 12 };
+        unaCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEF3C7" } };
+        unaCell.alignment = { vertical: "middle", horizontal: "left" };
+        unaTitleRow.height = 20;
+
+        for (let i = 0; i < unassigned.length; i++) {
+          const booking = unassigned[i];
+          const row = worksheet.addRow([i + 1, booking.customerName]);
+          row.getCell(1).alignment = { vertical: "middle", horizontal: "center" };
+          row.getCell(1).font = { color: { argb: "FF6B7280" }, size: 11 };
+          row.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF9FAFB" } };
+          if (booking.gender === "FEMALE") {
+            row.getCell(2).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFBCFE8" } };
+          }
+          for (let c = 1; c <= totalCols; c++) {
+            row.getCell(c).border = {
+              top: { style: "thin", color: { argb: "FFDBEAFE" } },
+              left: { style: "thin", color: { argb: "FFDBEAFE" } },
+              right: { style: "thin", color: { argb: "FFDBEAFE" } },
+              bottom: { style: "thin", color: { argb: "FFDBEAFE" } },
+            };
+          }
+        }
+      }
+
+      // Spacer row between slots
+      if (slotIdx < slots.length - 1) {
+        worksheet.addRow([]);
+      }
+    }
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${selectedDate}-phan-san.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   function resetShopFormDraft() {
@@ -1075,8 +1377,8 @@ export default function App() {
 
   async function handleFullPayment(id: number) {
     try {
-      await api.confirmFullPayment(id);
-      await loadData();
+      const updated = await api.confirmFullPayment(id);
+      setBookings((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
       toast.success("Đã xác nhận thanh toán đủ.");
     } catch (actionError) {
       setError(
@@ -1089,8 +1391,8 @@ export default function App() {
 
   async function handleNoShow(id: number) {
     try {
-      await api.markNoShow(id);
-      await loadData();
+      const updated = await api.markNoShow(id);
+      setBookings((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
       toast.error("Khách đã được đánh dấu không đến.");
     } catch (actionError) {
       setError(
@@ -1103,8 +1405,8 @@ export default function App() {
 
   async function handleRestoreBooking(id: number) {
     try {
-      await api.restoreBooking(id);
-      await loadData();
+      const updated = await api.restoreBooking(id);
+      setBookings((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
       toast.success("Booking đã được khôi phục và đưa lại vào danh sách vợt thủ.");
     } catch (actionError) {
       setError(
@@ -1118,7 +1420,7 @@ export default function App() {
   async function handleDeleteBooking(id: number) {
     try {
       await api.deleteBooking(id);
-      await loadData();
+      setBookings((prev) => prev.filter((b) => b.id !== id));
       toast("Đã xóa booking của khách.");
     } catch (actionError) {
       setError(
@@ -1365,8 +1667,8 @@ export default function App() {
     checked: boolean,
   ) {
     try {
-      await api.updateMatchTracking(id, slot, checked);
-      await loadData();
+      const updated = await api.updateMatchTracking(id, slot, checked);
+      setBookings((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
       toast(checked ? "Đã đánh dấu hoàn thành lượt chơi." : "Đã bỏ đánh dấu lượt chơi.");
     } catch (actionError) {
       setError(
@@ -1379,9 +1681,8 @@ export default function App() {
 
   function renderAssignedBookingCard(
     booking: Booking,
-    _className = "booking-card",
+    index?: number,
   ) {
-    void _className;
     const avatar = getAvatarColor(booking.customerName);
     const isCheckedIn =
       booking.status === "CHECKED_IN" || booking.status === "COMPLETED";
@@ -1397,6 +1698,9 @@ export default function App() {
           background: isFemale ? "#fdf2f8" : "#fff",
         }}
       >
+        {typeof index === "number" ? (
+          <div className="racket-row-stt">{index + 1}</div>
+        ) : null}
         <div
           className="racket-row-avatar"
           style={{ background: avatar.bg, color: avatar.fg }}
@@ -2007,7 +2311,10 @@ export default function App() {
         <div className="hero-note">
           <span>Thông tin nhanh</span>
           <strong>
-            {overview?.totals.todaysBookings ?? 0} lượt đặt hôm nay
+            {bookings.filter((b) => b.bookingDate === selectedDate && b.status !== "CANCELLED").length} lượt đặt
+            <span style={{ display: "block", fontSize: "0.55em", fontWeight: 400, opacity: 0.85, marginTop: 2, letterSpacing: "0.02em" }}>
+              {selectedDate === today ? "Hôm nay" : selectedDate}
+            </span>
           </strong>
           <p>
             {filteredRacketPlayerBookings.length} vợt thủ đang được theo dõi và{" "}
@@ -2090,7 +2397,7 @@ export default function App() {
 
       {error ? <div className="alert">{error}</div> : null}
 
-      <div className="global-date-bar">
+      <div className="global-date-bar" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <label className="global-date-label">
           <span>Ngày xem</span>
           <input
@@ -2103,25 +2410,77 @@ export default function App() {
             }}
           />
         </label>
+        <button
+          type="button"
+          className="ghost-button"
+          style={{ color: "#b91c1c", background: "#fff1f2", fontSize: 13, padding: "6px 14px", display: "flex", alignItems: "center", gap: 6 }}
+          onClick={() => setIsResetModalOpen(true)}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+          Xóa dữ liệu cũ
+        </button>
       </div>
 
-      <nav className="section-tabs" aria-label="Điều hướng khu vực chính">
-        {mainSectionTabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            className={
-              activeSectionTab === tab.id
-                ? "section-tab-button active"
-                : "section-tab-button"
-            }
-            onClick={() => setActiveSectionTab(tab.id)}
-          >
-            <span>{tab.label}</span>
-            <small>{tab.description}</small>
-          </button>
-        ))}
-      </nav>
+      {(() => {
+        const activeTab = mainSectionTabs.find((t) => t.id === activeSectionTab);
+        return (
+          <div className="section-tabs-wrapper">
+            <button
+              type="button"
+              className="section-tabs-toggle"
+              onClick={() => setIsSectionTabsOpen((v) => !v)}
+              aria-expanded={isSectionTabsOpen}
+              aria-controls="section-tabs-list"
+            >
+              <div className="section-tabs-toggle-info">
+                <span className="section-tabs-toggle-label">Khu vực hiện tại:</span>
+                <strong>{activeTab?.label ?? "—"}</strong>
+              </div>
+              <span className="section-tabs-toggle-action">
+                {isSectionTabsOpen ? (
+                  <>
+                    Ẩn tabs
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M18 15l-6-6-6 6" />
+                    </svg>
+                  </>
+                ) : (
+                  <>
+                    Hiện tabs
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M6 9l6 6 6-6" />
+                    </svg>
+                  </>
+                )}
+              </span>
+            </button>
+
+            {isSectionTabsOpen ? (
+              <nav
+                id="section-tabs-list"
+                className="section-tabs"
+                aria-label="Điều hướng khu vực chính"
+              >
+                {mainSectionTabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    className={
+                      activeSectionTab === tab.id
+                        ? "section-tab-button active"
+                        : "section-tab-button"
+                    }
+                    onClick={() => setActiveSectionTab(tab.id)}
+                  >
+                    <span>{tab.label}</span>
+                    <small>{tab.description}</small>
+                  </button>
+                ))}
+              </nav>
+            ) : null}
+          </div>
+        );
+      })()}
 
       <main className="tab-panel-shell">
         {activeSectionTab === "reception" ? (
@@ -2419,12 +2778,16 @@ export default function App() {
               </div>
               <button
                 type="button"
-                className="ghost-button"
-                style={{ color: "#b91c1c", background: "#fff1f2", fontSize: 13, padding: "6px 14px", display: "flex", alignItems: "center", gap: 6 }}
-                onClick={() => setIsResetModalOpen(true)}
+                className="ghost-button view-button"
+                title="Xem danh sách đầy đủ"
+                aria-label="Xem danh sách đầy đủ"
+                onClick={() => setIsQueueModalOpen(true)}
+                style={{ padding: "8px 10px" }}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-                Xóa dữ liệu cũ
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
               </button>
             </div>
             <div className="management-toolbar">
@@ -2489,36 +2852,14 @@ export default function App() {
                 Xuất Excel
               </button>
             </div>
-            <div className="panel-subhead history-subhead">
-              <p className="panel-tag">Danh sách vợt thủ</p>
-              <div className="history-subhead-row">
-                <h3>Danh sách khách theo ngày và trạng thái</h3>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button
-                    type="button"
-                    className="ghost-button view-button"
-                    onClick={() => void loadData()}
-                  >
-                    <span>Làm mới</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost-button view-button"
-                    onClick={() => setIsQueueModalOpen(true)}
-                  >
-                    <span>Xem</span>
-                  </button>
-                </div>
-              </div>
-            </div>
             <div className="schedule-list">
               {filteredRacketPlayerBookings.length === 0 ? (
                 <p className="empty-state">
                   Không có vợt thủ nào phù hợp với bộ lọc trong ngày này.
                 </p>
               ) : (
-                filteredRacketPlayerBookings.map((booking) =>
-                  renderAssignedBookingCard(booking),
+                filteredRacketPlayerBookings.map((booking, index) =>
+                  renderAssignedBookingCard(booking, index),
                 )
               )}
             </div>
@@ -2745,9 +3086,15 @@ export default function App() {
               <button
                 type="button"
                 className="ghost-button view-button"
+                title="Xem danh sách đầy đủ"
+                aria-label="Xem danh sách đầy đủ"
                 onClick={() => setIsTransactionModalOpen(true)}
+                style={{ padding: "8px 10px" }}
               >
-                <span>Xem</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
               </button>
             </div>
 
@@ -2793,7 +3140,7 @@ export default function App() {
                   Không có giao dịch nào phù hợp với bộ lọc.
                 </p>
               ) : (
-                transactionBookings.map((booking) => {
+                transactionBookings.map((booking, index) => {
                   const txStatus = getTransactionStatus(booking);
                   const isPaidWhileCancelled =
                     txStatus === "paid_while_cancelled";
@@ -2801,6 +3148,7 @@ export default function App() {
                     <article
                       key={booking.id}
                       className="booking-card compact-card"
+                      data-stt={index + 1}
                       style={
                         isPaidWhileCancelled
                           ? {
@@ -2811,12 +3159,15 @@ export default function App() {
                       }
                     >
                       <div className="booking-card-top">
-                        <div>
-                          <h3>{booking.customerName}</h3>
-                          <p>
-                            {booking.bookingDate} · {booking.startTime} –{" "}
-                            {booking.endTime}
-                          </p>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <div className="racket-row-stt" style={{ flexShrink: 0 }}>{index + 1}</div>
+                          <div>
+                            <h3 style={{ margin: 0 }}>{booking.customerName}</h3>
+                            <p style={{ margin: "2px 0 0" }}>
+                              {booking.bookingDate} · {booking.startTime} –{" "}
+                              {booking.endTime}
+                            </p>
+                          </div>
                         </div>
                         <span
                           className={`status ${getTransactionStatusCssClass(txStatus)}`}
@@ -3794,6 +4145,381 @@ export default function App() {
         </section>
       ) : null}
 
+      {activeSectionTab === "courts" ? (
+        <section className="panel">
+          <div className="panel-head">
+            <div>
+              <p className="panel-tag">Quản lý sân</p>
+              <h2>Danh sách sân ({courts.length})</h2>
+            </div>
+            <button
+              type="button"
+              className="primary-button"
+              onClick={openCourtFormForCreate}
+            >
+              + Thêm sân
+            </button>
+          </div>
+
+          {courts.length === 0 ? (
+            <p className="empty-state">Chưa có sân nào. Nhấn "Thêm sân" để bắt đầu.</p>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 10 }}>
+              {[...courts].sort((a, b) => a.name.localeCompare(b.name)).map((court) => (
+                <div
+                  key={court.id}
+                  style={{
+                    background: "#fff",
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 10,
+                    padding: "10px 14px",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 10,
+                  }}
+                >
+                  <strong style={{ fontSize: 15 }}>{court.name}</strong>
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    style={{ fontSize: 12, padding: "5px 10px" }}
+                    onClick={() => openCourtFormForRename(court)}
+                  >
+                    Sửa tên
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      ) : null}
+
+      {activeSectionTab === "court_assign" ? (() => {
+        const dayBookings = sortBookingsStable(
+          bookings
+            .filter((b) => b.bookingDate === selectedDate)
+            .filter((b) => b.depositPaid)
+            .filter((b) => b.status !== "CANCELLED"),
+        );
+
+        const slotsForAssign = Array.from(
+          new Map(
+            dayBookings.map((b) => [`${b.startTime}|${b.endTime}`, { startTime: b.startTime, endTime: b.endTime }]),
+          ).values(),
+        ).sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+        const filteredAssignBookings = dayBookings
+          .filter((b) =>
+            b.customerName.toLowerCase().includes(assignSearchTerm.trim().toLowerCase()),
+          )
+          .filter((b) => {
+            if (assignSlotFilter === "all") return true;
+            return `${b.startTime}|${b.endTime}` === assignSlotFilter;
+          })
+          .filter((b) => {
+            if (assignCourtFilter === "unassigned") return !b.court;
+            if (assignCourtFilter === "assigned") return Boolean(b.court);
+            return true;
+          })
+          .filter((b) => {
+            if (assignSkillFilter === "all") return true;
+            return b.skillLevel === assignSkillFilter;
+          });
+
+        const activeCourts = courts;
+        const slotScopedBookings = assignSlotFilter === "all"
+          ? dayBookings
+          : dayBookings.filter((b) => `${b.startTime}|${b.endTime}` === assignSlotFilter);
+        const assignedCount = slotScopedBookings.filter((b) => b.court).length;
+        const unassignedCount = slotScopedBookings.length - assignedCount;
+        const scopeLabel = assignSlotFilter === "all"
+          ? "cả ngày"
+          : `khung ${assignSlotFilter.replace("|", "–")}`;
+
+        return (
+          <section className="panel">
+            <div className="panel-head">
+              <div>
+                <p className="panel-tag">Phân sân</p>
+                <h2>Phân khách hàng vào sân — {selectedDate}</h2>
+                <p style={{ margin: "4px 0 0", fontSize: 13, color: "#6b7280" }}>
+                  ({scopeLabel}) Đã phân: {assignedCount} · Chưa phân: {unassignedCount} · Tổng: {slotScopedBookings.length}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="primary-button"
+                onClick={() => void exportCourtAssignmentToExcel()}
+              >
+                Xuất Excel
+              </button>
+            </div>
+
+            {courts.length === 0 ? (
+              <p className="empty-state">
+                Chưa có sân nào. Vào tab "Quản lý sân" để thêm sân trước.
+              </p>
+            ) : dayBookings.length === 0 ? (
+              <p className="empty-state">Không có khách nào trong ngày {selectedDate}.</p>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16 }}>
+                {/* Left: filter + booking list */}
+                <div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+                    <input
+                      type="text"
+                      placeholder="Tìm theo tên..."
+                      value={assignSearchTerm}
+                      onChange={(e) => setAssignSearchTerm(e.target.value)}
+                      style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #d1d5db" }}
+                    />
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <select
+                        value={assignSlotFilter}
+                        onChange={(e) => setAssignSlotFilter(e.target.value)}
+                        style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid #d1d5db" }}
+                      >
+                        <option value="all">Tất cả khung giờ</option>
+                        {slotsForAssign.map((slot) => (
+                          <option key={`${slot.startTime}|${slot.endTime}`} value={`${slot.startTime}|${slot.endTime}`}>
+                            {slot.startTime}–{slot.endTime}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        value={assignCourtFilter}
+                        onChange={(e) => setAssignCourtFilter(e.target.value as typeof assignCourtFilter)}
+                        style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid #d1d5db" }}
+                      >
+                        <option value="all">Tất cả</option>
+                        <option value="unassigned">Chưa phân sân</option>
+                        <option value="assigned">Đã phân sân</option>
+                      </select>
+                      <select
+                        value={assignSkillFilter}
+                        onChange={(e) => setAssignSkillFilter(e.target.value as SkillLevel | "all")}
+                        style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid #d1d5db" }}
+                      >
+                        <option value="all">Tất cả trình độ</option>
+                        {skillLevelOptions.map((level) => (
+                          <option key={level} value={level}>
+                            {getSkillLevelLabel(level)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 600, overflowY: "auto", paddingRight: 4 }}>
+                    {filteredAssignBookings.length === 0 ? (
+                      <p className="empty-state">Không có khách nào phù hợp với bộ lọc.</p>
+                    ) : (
+                      filteredAssignBookings.map((booking, index) => {
+                        const c = getAvatarColor(booking.customerName);
+                        return (
+                          <div
+                            key={booking.id}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 10,
+                              padding: "8px 12px",
+                              borderRadius: 10,
+                              border: "0.5px solid #e5e7eb",
+                              background: booking.gender === "FEMALE" ? "#fdf2f8" : "#fff",
+                            }}
+                          >
+                            <div className="racket-row-stt" style={{ flexShrink: 0 }}>{index + 1}</div>
+                            <div style={{ width: 34, height: 34, borderRadius: "50%", background: c.bg, color: c.fg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 600, flexShrink: 0 }}>
+                              {getPlayerInitials(booking.customerName)}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontWeight: 500, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {booking.customerName}
+                              </div>
+                              <div style={{ fontSize: 12, color: "#6b7280" }}>
+                                {getSkillLevelLabel(booking.skillLevel)} · {booking.startTime}–{booking.endTime}
+                              </div>
+                            </div>
+                            <select
+                              value={booking.court?.id ?? ""}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                void handleAssignCourtToBooking(booking.id, v ? Number(v) : null);
+                              }}
+                              style={{ padding: "6px 8px", borderRadius: 6, border: "1px solid #d1d5db", fontSize: 12, minWidth: 110 }}
+                            >
+                              <option value="">— Chưa phân —</option>
+                              {activeCourts.map((court) => (
+                                <option key={court.id} value={court.id}>
+                                  {court.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+
+                {/* Right: courts with assigned players (filtered by slot) */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 700, overflowY: "auto", paddingRight: 4 }}>
+                  {assignSlotFilter === "all" ? (
+                    <div style={{
+                      padding: "32px 20px",
+                      borderRadius: 12,
+                      background: "#f9fafb",
+                      border: "1.5px dashed #d1d5db",
+                      textAlign: "center",
+                      color: "#6b7280",
+                    }}>
+                      <div style={{ fontSize: 32, marginBottom: 8 }}>🕐</div>
+                      <p style={{ margin: "0 0 4px", fontSize: 15, fontWeight: 500, color: "#374151" }}>
+                        Vui lòng chọn một khung giờ
+                      </p>
+                      <p style={{ margin: 0, fontSize: 13 }}>
+                        Sân sẽ hiển thị ở đây sau khi bạn chọn khung giờ ở bộ lọc bên trái.
+                      </p>
+                    </div>
+                  ) : null}
+                  {assignSlotFilter !== "all" && [...activeCourts].sort((a, b) => a.name.localeCompare(b.name)).map((court) => {
+                    const courtBookings = sortBookingsStable(
+                      dayBookings
+                        .filter((b) => b.court?.id === court.id)
+                        .filter((b) => `${b.startTime}|${b.endTime}` === assignSlotFilter),
+                    );
+                    return (
+                      <div
+                        key={court.id}
+                        style={{
+                          background: "#fff",
+                          border: "1px solid #e5e7eb",
+                          borderRadius: 12,
+                          padding: "12px 14px",
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                          <strong style={{ fontSize: 15 }}>{court.name}</strong>
+                          <span style={{
+                            fontSize: 11,
+                            padding: "2px 8px",
+                            borderRadius: 999,
+                            background: courtBookings.length > 4 ? "#fef3c7" : courtBookings.length > 0 ? "#dcfce7" : "#f3f4f6",
+                            color: courtBookings.length > 4 ? "#92400e" : courtBookings.length > 0 ? "#166534" : "#9ca3af",
+                            fontWeight: 500,
+                          }}>
+                            {courtBookings.length} khách
+                          </span>
+                        </div>
+                        {courtBookings.length === 0 ? (
+                          <p style={{ margin: 0, fontSize: 12, color: "#9ca3af", fontStyle: "italic" }}>
+                            Chưa có khách
+                          </p>
+                        ) : (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                            {courtBookings.map((booking) => {
+                              const c = getAvatarColor(booking.customerName);
+                              return (
+                                <div
+                                  key={booking.id}
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 8,
+                                    padding: "5px 8px",
+                                    borderRadius: 6,
+                                    background: booking.gender === "FEMALE" ? "#fdf2f8" : "#f9fafb",
+                                  }}
+                                >
+                                  <div style={{ width: 26, height: 26, borderRadius: "50%", background: c.bg, color: c.fg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 600, flexShrink: 0 }}>
+                                    {getPlayerInitials(booking.customerName)}
+                                  </div>
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontSize: 13, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                      {booking.customerName}
+                                    </div>
+                                    <div style={{ fontSize: 11, color: "#6b7280" }}>
+                                      {getSkillLevelLabel(booking.skillLevel)} · {booking.startTime}–{booking.endTime}
+                                    </div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    title="Bỏ phân sân"
+                                    onClick={() => void handleAssignCourtToBooking(booking.id, null)}
+                                    style={{ width: 22, height: 22, padding: 0, border: "none", borderRadius: 4, background: "transparent", color: "#9ca3af", cursor: "pointer", fontSize: 16, lineHeight: 1 }}
+                                  >
+                                    ×
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {assignSlotFilter !== "all" && activeCourts.length === 0 ? (
+                    <p className="empty-state">Chưa có sân nào. Vào tab "Quản lý sân" để thêm sân.</p>
+                  ) : null}
+                </div>
+              </div>
+            )}
+          </section>
+        );
+      })() : null}
+
+      {isCourtFormOpen ? (
+        <div className="modal-backdrop" role="presentation" onClick={closeCourtForm}>
+          <div
+            className="modal-card"
+            role="dialog"
+            aria-modal="true"
+            style={{ maxWidth: 420 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="panel-head">
+              <div>
+                <p className="panel-tag">{editingCourt ? "Sửa tên sân" : "Thêm sân"}</p>
+                <h2>{editingCourt ? editingCourt.name : "Sân mới"}</h2>
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gap: 12 }}>
+              <label>
+                Tên sân *
+                <input
+                  value={courtFormDraft.name}
+                  onChange={(e) => setCourtFormDraft((d) => ({ ...d, name: e.target.value }))}
+                  placeholder="Ví dụ: Sân 1, Sân A..."
+                  autoFocus
+                  required
+                />
+              </label>
+
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 8 }}>
+                <button type="button" className="ghost-button" onClick={closeCourtForm}>
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  className="primary-button"
+                  disabled={isCourtSubmitting}
+                  onClick={() => void handleCourtSubmit()}
+                >
+                  {isCourtSubmitting
+                    ? "Đang lưu..."
+                    : editingCourt
+                      ? "Lưu tên mới"
+                      : "Thêm sân"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {isShopFormOpen ? (
         <div className="modal-backdrop" role="presentation" onClick={closeShopForm}>
           <div
@@ -4016,7 +4742,7 @@ export default function App() {
                   Không có giao dịch nào phù hợp với bộ lọc.
                 </p>
               ) : (
-                transactionBookings.map((booking) => {
+                transactionBookings.map((booking, index) => {
                   const txStatus = getTransactionStatus(booking);
                   const isPaidWhileCancelled =
                     txStatus === "paid_while_cancelled";
@@ -4034,12 +4760,15 @@ export default function App() {
                       }
                     >
                       <div className="booking-card-top">
-                        <div>
-                          <h3>{booking.customerName}</h3>
-                          <p>
-                            {booking.bookingDate} · {booking.startTime} –{" "}
-                            {booking.endTime}
-                          </p>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <div className="racket-row-stt" style={{ flexShrink: 0 }}>{index + 1}</div>
+                          <div>
+                            <h3 style={{ margin: 0 }}>{booking.customerName}</h3>
+                            <p style={{ margin: "2px 0 0" }}>
+                              {booking.bookingDate} · {booking.startTime} –{" "}
+                              {booking.endTime}
+                            </p>
+                          </div>
                         </div>
                         <span
                           className={`status ${getTransactionStatusCssClass(txStatus)}`}
@@ -4152,11 +4881,8 @@ export default function App() {
                   Không có vợt thủ nào phù hợp với bộ lọc trong ngày này.
                 </p>
               ) : (
-                filteredRacketPlayerBookings.map((booking) =>
-                  renderAssignedBookingCard(
-                    booking,
-                    "booking-card compact-card stadium-card",
-                  ),
+                filteredRacketPlayerBookings.map((booking, index) =>
+                  renderAssignedBookingCard(booking, index),
                 )
               )}
             </div>
