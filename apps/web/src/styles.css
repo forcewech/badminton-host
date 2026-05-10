@@ -822,6 +822,8 @@ select {
   background: #f4f8fa;
   border: 1px solid #d8e5e9;
   color: #35515c;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .booking-note strong {
