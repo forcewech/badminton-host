@@ -1940,9 +1940,17 @@ select {
   transition: background 0.12s ease, border-color 0.12s ease, transform 0.08s ease;
 }
 
+.racket-row.is-female {
+  background: #fdf2f8;
+}
+
 .racket-row:hover {
   background: #f9fafb;
   border-color: #d1d5db;
+}
+
+.racket-row.is-female:hover {
+  background: #fce7f3;
 }
 
 .racket-row:active {
@@ -2077,9 +2085,7 @@ select {
   }
 
   .racket-row-avatar {
-    width: 32px;
-    height: 32px;
-    font-size: 12px;
+    display: none;
   }
 
   .racket-row-name {
@@ -2094,5 +2100,200 @@ select {
     width: 28px;
     height: 28px;
   }
+
+  /* Hide status badge on mobile to free up space */
+  .racket-row > .status {
+    display: none;
+  }
+
+  /* Tint the whole row by status (overrides female bg) */
+  .racket-row[data-status="PENDING"] {
+    background: #fef9c3;
+    border-color: #fde68a;
+  }
+  .racket-row[data-status="CONFIRMED"] {
+    background: #ffffff;
+    border-color: #e5e7eb;
+  }
+  .racket-row[data-status="CHECKED_IN"] {
+    background: #fef3c7;
+    border-color: #fde68a;
+  }
+  .racket-row[data-status="COMPLETED"] {
+    background: #fee2e2;
+    border-color: #fecaca;
+  }
+  .racket-row[data-status="NO_SHOW"] {
+    background: #dcfce7;
+    border-color: #bbf7d0;
+  }
+  .racket-row[data-status="CANCELLED"] {
+    background: #f3f4f6;
+    border-color: #e5e7eb;
+    opacity: 0.7;
+  }
+  /* Female adds a subtle accent border-left even when status sets bg */
+  .racket-row.is-female {
+    border-left: 3px solid #ec4899;
+    padding-left: 8px;
+  }
 }
 
+/* ── Quick slot actions (Khung giờ chơi) ─────────────────────────────────── */
+.quick-slot-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.qs-stepper {
+  display: inline-flex;
+  align-items: stretch;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+  height: 38px;
+}
+
+.qs-stepper-btn {
+  width: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: #4b5563;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.qs-stepper-btn:hover:not(:disabled) {
+  background: #e5e7eb;
+  color: #176c63;
+}
+
+.qs-stepper-btn:active:not(:disabled) {
+  background: #d1d5db;
+}
+
+.qs-stepper-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.qs-stepper-value {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 56px;
+  background: #fff;
+  border-left: 1px solid #e5e7eb;
+  border-right: 1px solid #e5e7eb;
+  padding: 0 8px;
+  line-height: 1;
+}
+
+.qs-stepper-num {
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+  font-variant-numeric: tabular-nums;
+}
+
+.qs-stepper-label {
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+.qs-delete-btn {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  background: #fff;
+  color: #b91c1c;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease, transform 0.08s ease;
+}
+
+.qs-delete-btn:hover {
+  background: #fef2f2;
+  border-color: #f87171;
+  color: #991b1b;
+}
+
+.qs-delete-btn:active {
+  transform: scale(0.95);
+}
+
+/* Larger stepper for create form */
+.qs-create-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.qs-create-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #13313d;
+}
+
+.qs-create-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+
+.qs-stepper.qs-stepper-large {
+  height: 48px;
+  border-radius: 12px;
+  align-self: flex-start;
+}
+
+.qs-stepper-large .qs-stepper-btn {
+  width: 44px;
+}
+
+.qs-stepper-large .qs-stepper-btn:hover:not(:disabled) {
+  background: #dff3ec;
+  color: #0e5b54;
+}
+
+.qs-stepper-input {
+  width: 70px;
+  border: none;
+  border-left: 1px solid #e5e7eb;
+  border-right: 1px solid #e5e7eb;
+  background: #fff;
+  text-align: center;
+  font-size: 17px;
+  font-weight: 700;
+  color: #111827;
+  font-variant-numeric: tabular-nums;
+  padding: 0;
+  outline: none;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.qs-stepper-input::-webkit-outer-spin-button,
+.qs-stepper-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.qs-stepper-input:focus {
+  background: #f4faf9;
+}

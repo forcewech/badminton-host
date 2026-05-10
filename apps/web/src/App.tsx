@@ -90,8 +90,8 @@ const mainSectionTabs = [
   },
   {
     id: "courts",
-    label: "Quản lý sân",
-    description: "Quản lý sân cầu lông",
+    label: "Sân cầu",
+    description: "Thêm bớt sân cầu",
   },
   {
     id: "court_assign",
@@ -1692,11 +1692,9 @@ export default function App() {
     return (
       <div
         key={booking.id}
-        className="racket-row"
+        className={`racket-row${isFemale ? " is-female" : ""}`}
+        data-status={booking.status}
         onClick={() => setDetailBooking(booking)}
-        style={{
-          background: isFemale ? "#fdf2f8" : "#fff",
-        }}
       >
         {typeof index === "number" ? (
           <div className="racket-row-stt">{index + 1}</div>
@@ -1718,14 +1716,6 @@ export default function App() {
             <span>
               {booking.startTime}–{booking.endTime}
             </span>
-            {booking.fullPaymentTransferred ? (
-              <>
-                <span>·</span>
-                <span style={{ color: "#15803d", fontWeight: 500 }}>
-                  ✓ Đã TT đủ
-                </span>
-              </>
-            ) : null}
           </div>
         </div>
 
@@ -1901,6 +1891,7 @@ export default function App() {
 
     for (const booking of exportBookings) {
       const isCheckedIn = booking.status === "CHECKED_IN" || booking.status === "COMPLETED";
+      const isNoShow = booking.status === "NO_SHOW";
       const isFullPaid = booking.fullPaymentTransferred;
       const row = worksheet.addRow({
         date: booking.bookingDate,
@@ -1919,7 +1910,13 @@ export default function App() {
         notes: booking.notes,
       });
 
-      const fillColor = isFullPaid ? "FFFF9999" : isCheckedIn ? "FFFFFF00" : null;
+      const fillColor = isNoShow
+        ? "FF86EFAC"
+        : isFullPaid
+          ? "FFFF9999"
+          : isCheckedIn
+            ? "FFFFFF00"
+            : null;
       if (fillColor) {
         row.eachCell({ includeEmpty: true }, (cell) => {
           cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: fillColor } };
@@ -2433,7 +2430,7 @@ export default function App() {
               aria-controls="section-tabs-list"
             >
               <div className="section-tabs-toggle-info">
-                <span className="section-tabs-toggle-label">Khu vực hiện tại:</span>
+                <span className="section-tabs-toggle-label">Hiện tại:</span>
                 <strong>{activeTab?.label ?? "—"}</strong>
               </div>
               <span className="section-tabs-toggle-action">
@@ -2977,22 +2974,55 @@ export default function App() {
                     </label>
                   </div>
 
-                  <label>
-                    Số người tối đa
-                    <input
-                      type="number"
-                      min={1}
-                      max={100}
-                      value={quickSlotDraft.maxPlayers}
-                      onChange={(event) =>
-                        setQuickSlotDraft({
-                          ...quickSlotDraft,
-                          maxPlayers: Math.max(1, Number(event.target.value) || 1),
-                        })
-                      }
-                      required
-                    />
-                  </label>
+                  <div className="qs-create-field">
+                    <label className="qs-create-label">Số người tối đa</label>
+                    <div className="qs-stepper qs-stepper-large">
+                      <button
+                        type="button"
+                        className="qs-stepper-btn"
+                        aria-label="Giảm"
+                        disabled={quickSlotDraft.maxPlayers <= 1}
+                        onClick={() =>
+                          setQuickSlotDraft((d) => ({
+                            ...d,
+                            maxPlayers: Math.max(1, d.maxPlayers - 1),
+                          }))
+                        }
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                          <path d="M5 12h14" />
+                        </svg>
+                      </button>
+                      <input
+                        type="number"
+                        min={1}
+                        max={100}
+                        className="qs-stepper-input"
+                        value={quickSlotDraft.maxPlayers}
+                        onChange={(event) => {
+                          const v = Math.min(100, Math.max(1, Number(event.target.value) || 1));
+                          setQuickSlotDraft((d) => ({ ...d, maxPlayers: v }));
+                        }}
+                        aria-label="Số người tối đa"
+                      />
+                      <button
+                        type="button"
+                        className="qs-stepper-btn"
+                        aria-label="Tăng"
+                        disabled={quickSlotDraft.maxPlayers >= 100}
+                        onClick={() =>
+                          setQuickSlotDraft((d) => ({
+                            ...d,
+                            maxPlayers: Math.min(100, d.maxPlayers + 1),
+                          }))
+                        }
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                          <path d="M12 5v14M5 12h14" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
 
                   <div className="quick-slot-admin-actions">
                     <button
@@ -3039,29 +3069,56 @@ export default function App() {
                               </span>
                             </small>
                           </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#6b7280" }}>
-                              Tối đa
-                              <input
-                                type="number"
-                                min={1}
-                                max={100}
-                                defaultValue={slot.maxPlayers}
-                                onBlur={(e) => {
-                                  const v = Math.max(1, Number(e.target.value) || 1);
-                                  if (v !== slot.maxPlayers) {
-                                    void handleQuickSlotMaxPlayersUpdate(slot.id, v);
-                                  }
-                                }}
-                                style={{ width: 70 }}
-                              />
-                            </label>
+                          <div className="quick-slot-actions">
+                            <div className="qs-stepper" aria-label="Số người tối đa">
+                              <button
+                                type="button"
+                                className="qs-stepper-btn"
+                                aria-label="Giảm"
+                                disabled={slot.maxPlayers <= 1}
+                                onClick={() =>
+                                  void handleQuickSlotMaxPlayersUpdate(
+                                    slot.id,
+                                    Math.max(1, slot.maxPlayers - 1),
+                                  )
+                                }
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                                  <path d="M5 12h14" />
+                                </svg>
+                              </button>
+                              <div className="qs-stepper-value">
+                                <span className="qs-stepper-num">{slot.maxPlayers}</span>
+                                <span className="qs-stepper-label">tối đa</span>
+                              </div>
+                              <button
+                                type="button"
+                                className="qs-stepper-btn"
+                                aria-label="Tăng"
+                                disabled={slot.maxPlayers >= 100}
+                                onClick={() =>
+                                  void handleQuickSlotMaxPlayersUpdate(
+                                    slot.id,
+                                    Math.min(100, slot.maxPlayers + 1),
+                                  )
+                                }
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                                  <path d="M12 5v14M5 12h14" />
+                                </svg>
+                              </button>
+                            </div>
                             <button
                               type="button"
-                              className="ghost-button"
+                              className="qs-delete-btn"
+                              title="Xóa khung giờ"
+                              aria-label="Xóa khung giờ"
                               onClick={() => void handleQuickSlotDelete(slot.id)}
                             >
-                              Xóa
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" />
+                                <path d="M10 11v6M14 11v6" />
+                              </svg>
                             </button>
                           </div>
                         </div>
@@ -4274,11 +4331,11 @@ export default function App() {
                       onChange={(e) => setAssignSearchTerm(e.target.value)}
                       style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #d1d5db" }}
                     />
-                    <div style={{ display: "flex", gap: 8 }}>
+                    <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))" }}>
                       <select
                         value={assignSlotFilter}
                         onChange={(e) => setAssignSlotFilter(e.target.value)}
-                        style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid #d1d5db" }}
+                        style={{ minWidth: 0, padding: "8px 10px", borderRadius: 8, border: "1px solid #d1d5db" }}
                       >
                         <option value="all">Tất cả khung giờ</option>
                         {slotsForAssign.map((slot) => (
@@ -4290,7 +4347,7 @@ export default function App() {
                       <select
                         value={assignCourtFilter}
                         onChange={(e) => setAssignCourtFilter(e.target.value as typeof assignCourtFilter)}
-                        style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid #d1d5db" }}
+                        style={{ minWidth: 0, padding: "8px 10px", borderRadius: 8, border: "1px solid #d1d5db" }}
                       >
                         <option value="all">Tất cả</option>
                         <option value="unassigned">Chưa phân sân</option>
@@ -4299,7 +4356,7 @@ export default function App() {
                       <select
                         value={assignSkillFilter}
                         onChange={(e) => setAssignSkillFilter(e.target.value as SkillLevel | "all")}
-                        style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid #d1d5db" }}
+                        style={{ minWidth: 0, padding: "8px 10px", borderRadius: 8, border: "1px solid #d1d5db" }}
                       >
                         <option value="all">Tất cả trình độ</option>
                         {skillLevelOptions.map((level) => (
