@@ -600,14 +600,13 @@ export default function App() {
                           <span className="slot-button-time">
                             {formatQuickSlotLabel(slot.startTime, slot.endTime)}
                           </span>
-                          <span className="slot-button-count">
-                            {slot.currentBookings}/{slot.maxPlayers} người
-                          </span>
                           {ended ? (
                             <span className="slot-button-status">Đã kết thúc</span>
                           ) : isFull ? (
-                            <span className="slot-button-status slot-button-status-full">Đã đủ người</span>
-                          ) : null}
+                            <span className="slot-button-status slot-button-status-full">Hết chỗ</span>
+                          ) : (
+                            <span className="slot-button-status slot-button-status-available">Còn chỗ</span>
+                          )}
                         </button>
                       );
                     })}

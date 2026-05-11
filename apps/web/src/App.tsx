@@ -1911,9 +1911,9 @@ export default function App() {
       });
 
       const fillColor = isNoShow
-        ? "FF86EFAC"
+        ? "FFFCA5A5"
         : isFullPaid
-          ? "FFFF9999"
+          ? "FF86EFAC"
           : isCheckedIn
             ? "FFFFFF00"
             : null;

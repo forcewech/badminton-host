@@ -244,6 +244,16 @@ button {
   background: #fee2e2;
 }
 
+.slot-button-status-available {
+  color: #15803d;
+  background: #dcfce7;
+}
+
+.slot-button.active .slot-button-status-available {
+  color: #f0fdf4;
+  background: rgba(255, 255, 255, 0.18);
+}
+
 .photo-card {
   display: grid;
   gap: 1rem;

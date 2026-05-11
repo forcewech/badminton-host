@@ -2122,12 +2122,12 @@ select {
     border-color: #fde68a;
   }
   .racket-row[data-status="COMPLETED"] {
-    background: #fee2e2;
-    border-color: #fecaca;
-  }
-  .racket-row[data-status="NO_SHOW"] {
     background: #dcfce7;
     border-color: #bbf7d0;
+  }
+  .racket-row[data-status="NO_SHOW"] {
+    background: #fee2e2;
+    border-color: #fecaca;
   }
   .racket-row[data-status="CANCELLED"] {
     background: #f3f4f6;
