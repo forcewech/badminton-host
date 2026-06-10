@@ -4,7 +4,6 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { PlaySession } from './entities/play-session.entity';
@@ -462,29 +461,6 @@ export class PlaySessionsService {
     }
 
     return this.findOne(sessionId);
-  }
-
-  // ── Auto-end past sessions ────────────────────────────────────────────────
-
-  @Cron('0 0 * * *')
-  async autoEndPastSessions() {
-    const sessions = await this.sessionRepo.find({
-      where: [{ status: 'UPCOMING' }, { status: 'ACTIVE' }],
-    });
-
-    const now = new Date();
-    const toEnd = sessions.filter((s) => {
-      const end = new Date(`${s.date}T${s.endTime}`);
-      return end <= now;
-    });
-
-    if (toEnd.length === 0) return;
-
-    await this.sessionRepo.update(
-      toEnd.map((s) => s.id),
-      { status: 'ENDED' },
-    );
-    this.logger.log(`Auto-ended ${toEnd.length} past session(s): ${toEnd.map((s) => s.id).join(', ')}`);
   }
 
   // ── Pairing algorithm ──────────────────────────────────────────────────────

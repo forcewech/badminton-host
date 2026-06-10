@@ -7,9 +7,8 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { Cron, CronExpression } from "@nestjs/schedule";
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
-import { DataSource, LessThan, Not, Repository } from "typeorm";
+import { DataSource, Not, Repository } from "typeorm";
 import { BookingStatus } from "../common/enums/booking-status.enum";
 import { CourtsService } from "../courts/courts.service";
 import { AssignCourtDto } from "./dto/assign-court.dto";
@@ -581,22 +580,6 @@ export class BookingsService {
     }
 
     return new Date(booking.depositExpiresAt).getTime() <= Date.now();
-  }
-
-  @Cron(CronExpression.EVERY_MINUTE)
-  async cancelExpiredPendingBookings() {
-    const now = new Date().toISOString();
-    const result = await this.bookingsRepository.update(
-      {
-        status: BookingStatus.PENDING,
-        depositExpiresAt: LessThan(now),
-      },
-      { status: BookingStatus.CANCELLED },
-    );
-
-    if (result.affected && result.affected > 0) {
-      this.logger.log(`Cancelled ${result.affected} expired pending booking(s).`);
-    }
   }
 
   private async expirePendingBookingIfNeeded(booking: Booking) {
