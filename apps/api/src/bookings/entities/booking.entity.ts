@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, Index, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import { Court } from '../../courts/entities/court.entity';
 import { BookingStatus } from '../../common/enums/booking-status.enum';
 
@@ -18,6 +18,7 @@ export enum SkillLevel {
 }
 
 @Entity('bookings')
+@Index(['status', 'depositExpiresAt'])
 export class Booking {
   @PrimaryGeneratedColumn()
   id!: number;
