@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Not, Repository } from 'typeorm';
+import { MoreThanOrEqual, Not, Repository } from 'typeorm';
 import { Booking } from '../bookings/entities/booking.entity';
 import { BookingStatus } from '../common/enums/booking-status.enum';
 import { CreateQuickSlotDto } from './dto/create-quick-slot.dto';
@@ -30,6 +30,32 @@ export class QuickSlotsService {
     const slots = await this.quickSlotsRepository.find({
       where: { bookingDate },
       order: {
+        startTime: 'ASC',
+        endTime: 'ASC',
+      },
+    });
+
+    if (slots.length === 0) return [];
+
+    return Promise.all(
+      slots.map(async (slot) => {
+        const currentBookings = await this.countActiveBookings(
+          slot.bookingDate,
+          slot.startTime,
+          slot.endTime,
+        );
+        return { ...slot, currentBookings };
+      }),
+    );
+  }
+
+  async findAllUpcoming(): Promise<QuickSlotWithCount[]> {
+    const today = new Date().toLocaleDateString('en-CA');
+
+    const slots = await this.quickSlotsRepository.find({
+      where: { bookingDate: MoreThanOrEqual(today) },
+      order: {
+        bookingDate: 'ASC',
         startTime: 'ASC',
         endTime: 'ASC',
       },

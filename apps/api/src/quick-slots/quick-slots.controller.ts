@@ -9,6 +9,12 @@ export class QuickSlotsController {
   constructor(private readonly quickSlotsService: QuickSlotsService) {}
 
   @Public()
+  @Get('all')
+  findAllUpcoming() {
+    return this.quickSlotsService.findAllUpcoming();
+  }
+
+  @Public()
   @Get()
   findByDate(@Query('date') bookingDate: string) {
     return this.quickSlotsService.findByDate(bookingDate);

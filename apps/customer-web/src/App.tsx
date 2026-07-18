@@ -1,4 +1,4 @@
-﻿import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+﻿import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Toaster, toast } from "react-hot-toast";
 import { api, ApiError } from "./api";
 import type {
@@ -110,6 +110,10 @@ export default function App() {
   const [skillLevelError, setSkillLevelError] = useState(false);
   const [quickSlots, setQuickSlots] = useState<QuickSlot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState("");
+  const [allQuickSlots, setAllQuickSlots] = useState<QuickSlot[]>([]);
+  const [isSchedulePopupOpen, setIsSchedulePopupOpen] = useState(false);
+  const pendingSlotKeyRef = useRef("");
+  const hasOpenedSchedulePopupRef = useRef(false);
   const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState("");
   const [submission, setSubmission] = useState<PublicBookingResponse | null>(
@@ -198,7 +202,14 @@ export default function App() {
         }
 
         setQuickSlots(nextQuickSlots);
-        if (isInitial) setSelectedSlot("");
+        if (isInitial) {
+          if (pendingSlotKeyRef.current) {
+            setSelectedSlot(pendingSlotKeyRef.current);
+            pendingSlotKeyRef.current = "";
+          } else {
+            setSelectedSlot("");
+          }
+        }
       } catch {
         if (!cancelled && isInitial) {
           setQuickSlots([]);
@@ -222,6 +233,37 @@ export default function App() {
       window.clearInterval(interval);
     };
   }, [form.bookingDate, submission]);
+
+  useEffect(() => {
+    if (submission) return;
+
+    let cancelled = false;
+
+    const loadAllSlots = async () => {
+      try {
+        const slots = await api.getAllQuickSlots();
+        if (cancelled) return;
+        setAllQuickSlots(slots);
+        if (slots.length > 0 && !hasOpenedSchedulePopupRef.current) {
+          hasOpenedSchedulePopupRef.current = true;
+          setIsSchedulePopupOpen(true);
+        }
+      } catch {
+        if (!cancelled) setAllQuickSlots([]);
+      }
+    };
+
+    void loadAllSlots();
+
+    const interval = window.setInterval(() => {
+      void loadAllSlots();
+    }, 5000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [submission]);
 
   useEffect(() => {
     if (!selectedSlot) return;
@@ -276,6 +318,19 @@ export default function App() {
       endTime: paymentStatus?.endTime ?? submission.booking.endTime,
     };
   }, [paymentStatus, submission]);
+
+  const scheduleByDate = useMemo(() => {
+    const groups = new Map<string, QuickSlot[]>();
+    for (const slot of allQuickSlots) {
+      const list = groups.get(slot.bookingDate) ?? [];
+      list.push(slot);
+      groups.set(slot.bookingDate, list);
+    }
+    return Array.from(groups.entries()).map(([date, slots]) => ({
+      date,
+      slots,
+    }));
+  }, [allQuickSlots]);
 
   useEffect(() => {
     return () => {
@@ -399,6 +454,19 @@ export default function App() {
     }
   }
 
+  function handleSelectFromSchedule(slot: QuickSlot) {
+    const slotKey = `${slot.startTime}-${slot.endTime}`;
+    pendingSlotKeyRef.current = slotKey;
+    setSelectedSlot(slotKey);
+    setForm((current) => ({
+      ...current,
+      bookingDate: slot.bookingDate,
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+    }));
+    setIsSchedulePopupOpen(false);
+  }
+
   function resetFlow() {
     if (photoPreview) {
       URL.revokeObjectURL(photoPreview);
@@ -413,6 +481,7 @@ export default function App() {
     setRemainingSeconds(120);
     setHasHandledSuccessfulPayment(false);
     setIsSuccessModalOpen(false);
+    hasOpenedSchedulePopupRef.current = false;
   }
 
   return (
@@ -892,6 +961,91 @@ export default function App() {
               src={getDisplayPhotoUrl(fullscreenPhotoUrl)}
               alt="Xem ảnh toàn màn hình"
             />
+          </div>
+        </div>
+      ) : null}
+
+      {isSchedulePopupOpen ? (
+        <div
+          className="success-modal-backdrop"
+          onClick={() => setIsSchedulePopupOpen(false)}
+        >
+          <div
+            className="schedule-modal"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="schedule-modal-head">
+              <div>
+                <p className="panel-tag">Lịch chơi sắp tới</p>
+                <h2>Chọn nhanh khung giờ bạn muốn chơi</h2>
+                <p className="schedule-modal-sub">
+                  Chạm vào một khung giờ để tự động điền ngày đặt và giờ chơi.
+                  Khung màu đỏ đã hết chỗ.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="schedule-modal-close"
+                onClick={() => setIsSchedulePopupOpen(false)}
+                aria-label="Đóng"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="schedule-modal-body">
+              {scheduleByDate.map(({ date, slots }) => (
+                <div key={date} className="schedule-day">
+                  <p className="schedule-day-title">
+                    {formatDateVietnamese(date)}
+                  </p>
+                  <div className="slot-grid">
+                    {slots.map((slot) => {
+                      const slotKey = `${slot.startTime}-${slot.endTime}`;
+                      const ended = isSlotEnded(date, slot.endTime);
+                      const isFull = slot.currentBookings >= slot.maxPlayers;
+                      const disabled = ended || isFull;
+
+                      return (
+                        <button
+                          key={slotKey}
+                          type="button"
+                          className={
+                            ended
+                              ? "slot-button ended"
+                              : isFull
+                                ? "slot-button full"
+                                : "slot-button"
+                          }
+                          disabled={disabled}
+                          onClick={() => {
+                            if (disabled) return;
+                            handleSelectFromSchedule(slot);
+                          }}
+                        >
+                          <span className="slot-button-time">
+                            {formatQuickSlotLabel(slot.startTime, slot.endTime)}
+                          </span>
+                          {ended ? (
+                            <span className="slot-button-status">
+                              Đã kết thúc
+                            </span>
+                          ) : isFull ? (
+                            <span className="slot-button-status slot-button-status-full">
+                              Hết chỗ
+                            </span>
+                          ) : (
+                            <span className="slot-button-status slot-button-status-available">
+                              Còn chỗ
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       ) : null}

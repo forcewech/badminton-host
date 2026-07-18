@@ -65,5 +65,6 @@ export const api = {
     request<PublicPaymentStatus>(`/bookings/public/${reference}/status`),
   getQuickSlots: (date: string) =>
     request<QuickSlot[]>(`/quick-slots?date=${encodeURIComponent(date)}`),
+  getAllQuickSlots: () => request<QuickSlot[]>("/quick-slots/all"),
   getShopItems: () => request<ShopItem[]>("/shop/items"),
 };
