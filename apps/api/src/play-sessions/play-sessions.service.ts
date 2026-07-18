@@ -193,12 +193,45 @@ export class PlaySessionsService {
     return this.findOne(saved.id);
   }
 
+  private lastSweepAt = 0;
+
   async findAll() {
+    await this.sweepEndedSessions();
     const sessions = await this.sessionRepo.find({
       relations: ['players', 'matches'],
       order: { createdAt: 'DESC' },
     });
     return sessions.map((s) => ({ ...s, suggestions: [] as PairingSuggestion[] }));
+  }
+
+  /**
+   * Tự kết thúc các buổi chơi đã qua giờ. Chạy theo nhu cầu (khi admin tải
+   * danh sách) thay vì cron nền — throttle tối đa 1 lần/phút. Chỉ nạp các
+   * buổi UPCOMING/ACTIVE (tập nhỏ) nên chi phí không đáng kể.
+   */
+  private async sweepEndedSessions() {
+    const now = Date.now();
+    if (now - this.lastSweepAt < 60_000) {
+      return;
+    }
+    this.lastSweepAt = now;
+
+    const sessions = await this.sessionRepo.find({
+      where: [{ status: 'UPCOMING' }, { status: 'ACTIVE' }],
+      select: ['id', 'date', 'endTime'],
+    });
+
+    const nowDate = new Date();
+    const toEnd = sessions
+      .filter((s) => new Date(`${s.date}T${s.endTime}`) <= nowDate)
+      .map((s) => s.id);
+
+    if (toEnd.length === 0) return;
+
+    await this.sessionRepo.update(toEnd, { status: 'ENDED' });
+    this.logger.log(
+      `Auto-ended ${toEnd.length} past session(s): ${toEnd.join(', ')}`,
+    );
   }
 
   async findOne(id: number) {

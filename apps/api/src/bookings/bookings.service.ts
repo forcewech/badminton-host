@@ -8,7 +8,7 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
-import { DataSource, Not, Repository } from "typeorm";
+import { DataSource, LessThan, Repository } from "typeorm";
 import { BookingStatus } from "../common/enums/booking-status.enum";
 import { CourtsService } from "../courts/courts.service";
 import { AssignCourtDto } from "./dto/assign-court.dto";
@@ -42,12 +42,43 @@ export class BookingsService {
     private readonly dataSource: DataSource,
   ) {}
 
-  findAll() {
+  private lastSweepAt = 0;
+
+  async findAll() {
+    await this.sweepExpiredPending();
     return this.bookingsRepository.find({
       order: {
         createdAt: "DESC",
       },
     });
+  }
+
+  /**
+   * Huỷ các booking PENDING đã hết hạn cọc. Chạy theo nhu cầu (khi admin tải
+   * danh sách) thay vì cron nền — được throttle tối đa 1 lần/phút và dựa trên
+   * index (status, depositExpiresAt) nên chi phí không đáng kể.
+   */
+  private async sweepExpiredPending() {
+    const now = Date.now();
+    if (now - this.lastSweepAt < 60_000) {
+      return;
+    }
+    this.lastSweepAt = now;
+
+    const result = await this.bookingsRepository.update(
+      {
+        status: BookingStatus.PENDING,
+        depositPaid: false,
+        depositExpiresAt: LessThan(new Date().toISOString()),
+      },
+      { status: BookingStatus.CANCELLED },
+    );
+
+    if (result.affected && result.affected > 0) {
+      this.logger.log(
+        `Cancelled ${result.affected} expired pending booking(s).`,
+      );
+    }
   }
 
   async create(createBookingDto: CreateBookingDto) {
@@ -100,14 +131,29 @@ export class BookingsService {
         });
 
         if (slot) {
-          const currentBookings = await manager.count(Booking, {
-            where: {
+          const currentBookings = await manager
+            .createQueryBuilder(Booking, "b")
+            .where("b.bookingDate = :bookingDate", {
               bookingDate: createPublicBookingDto.bookingDate,
+            })
+            .andWhere("b.startTime = :startTime", {
               startTime: createPublicBookingDto.startTime,
+            })
+            .andWhere("b.endTime = :endTime", {
               endTime: createPublicBookingDto.endTime,
-              status: Not(BookingStatus.CANCELLED),
-            },
-          });
+            })
+            .andWhere("b.status != :cancelled", {
+              cancelled: BookingStatus.CANCELLED,
+            })
+            // Bỏ qua booking PENDING đã hết hạn cọc — slot coi như đã trống
+            .andWhere(
+              "NOT (b.status = :pending AND b.depositPaid = false AND b.depositExpiresAt < :now)",
+              {
+                pending: BookingStatus.PENDING,
+                now: new Date().toISOString(),
+              },
+            )
+            .getCount();
 
           if (currentBookings >= slot.maxPlayers) {
             throw new ConflictException(
