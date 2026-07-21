@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { MoreThanOrEqual, Not, Repository } from 'typeorm';
+import { MoreThanOrEqual, Repository } from 'typeorm';
 import { Booking } from '../bookings/entities/booking.entity';
 import { BookingStatus } from '../common/enums/booking-status.enum';
 import { CreateQuickSlotDto } from './dto/create-quick-slot.dto';
@@ -80,14 +80,23 @@ export class QuickSlotsService {
     startTime: string,
     endTime: string,
   ) {
-    return this.bookingsRepository.count({
-      where: {
-        bookingDate,
-        startTime,
-        endTime,
-        status: Not(BookingStatus.CANCELLED),
-      },
-    });
+    return this.bookingsRepository
+      .createQueryBuilder('b')
+      .where('b.bookingDate = :bookingDate', { bookingDate })
+      .andWhere('b.startTime = :startTime', { startTime })
+      .andWhere('b.endTime = :endTime', { endTime })
+      .andWhere('b.status != :cancelled', {
+        cancelled: BookingStatus.CANCELLED,
+      })
+      // Bỏ qua booking PENDING đã hết hạn cọc — slot coi như đã trống
+      .andWhere(
+        'NOT (b.status = :pending AND b.depositPaid = false AND b.depositExpiresAt < :now)',
+        {
+          pending: BookingStatus.PENDING,
+          now: new Date().toISOString(),
+        },
+      )
+      .getCount();
   }
 
   async create(createQuickSlotDto: CreateQuickSlotDto) {
